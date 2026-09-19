@@ -1,0 +1,11 @@
+services:
+  navhub:
+    build: .
+    container_name: navhub
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data   # 数据持久化，备份此目录即可

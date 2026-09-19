@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NavHub 后台管理</title>
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } }
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body class="bg-[#F5F5F7] dark:bg-gray-950 text-slate-900 dark:text-slate-200 min-h-screen antialiased">
+
+<!-- ============ 登录视图 ============ -->
+<div id="loginView" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-[0_8px_40px_rgba(15,23,42,0.06)] p-8">
+    <div class="flex flex-col items-center mb-6">
+      <span class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-md mb-3">
+        <i data-lucide="compass" class="w-6 h-6"></i>
+      </span>
+      <h1 class="text-xl font-bold tracking-tight">NavHub 后台</h1>
+      <p class="text-xs text-slate-400 mt-1">管理你的网址导航</p>
+    </div>
+    <div class="space-y-3">
+      <div class="relative">
+        <i data-lucide="user" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+        <input id="loginUser" placeholder="用户名" autocomplete="username"
+          class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15 transition duration-200">
+      </div>
+      <div class="relative">
+        <i data-lucide="lock" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+        <input id="loginPass" type="password" placeholder="密码" autocomplete="current-password"
+          class="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15 transition duration-200">
+      </div>
+      <button id="loginBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-indigo-400 transition duration-200 cursor-pointer">
+        登 录
+      </button>
+      <p id="loginErr" class="hidden text-sm text-rose-500 text-center"></p>
+    </div>
+    <p class="mt-5 text-center text-xs text-slate-400">
+      <a href="/" class="hover:text-indigo-500 transition-colors">← 返回前台</a>
+    </p>
+  </div>
+</div>
+
+<!-- ============ 管理面板 ============ -->
+<div id="panelView" class="hidden min-h-screen">
+  <!-- 顶栏 -->
+  <header class="sticky top-0 z-30 backdrop-blur-xl bg-white/75 dark:bg-gray-900/75 border-b border-gray-200/80 dark:border-gray-800">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="/admin" class="flex items-center gap-2.5 font-bold tracking-tight cursor-pointer">
+        <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center">
+          <i data-lucide="compass" class="w-4 h-4"></i>
+        </span>
+        <span>Nav<span class="text-indigo-500">Hub</span> <span class="text-xs font-normal text-slate-400 ml-1">管理后台</span></span>
+      </a>
+      <div class="flex items-center gap-1.5">
+        <button data-theme class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" title="切换主题">
+          <i data-lucide="moon" class="w-[18px] h-[18px] hidden dark:block"></i>
+          <i data-lucide="sun" class="w-[18px] h-[18px] block dark:hidden"></i>
+        </button>
+        <a href="/" target="_blank" title="查看前台" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer">
+          <i data-lucide="external-link" class="w-[18px] h-[18px]"></i>
+        </a>
+        <button id="logoutBtn" title="退出登录" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer">
+          <i data-lucide="log-out" class="w-[18px] h-[18px]"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Tab 切换 -->
+    <div class="flex gap-1.5 mb-6 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-2xl p-1.5 w-fit shadow-sm">
+      <button data-tab="cats" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
+        <i data-lucide="folder" class="w-4 h-4"></i>分类管理
+      </button>
+      <button data-tab="sites" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
+        <i data-lucide="link" class="w-4 h-4"></i>网址管理
+      </button>
+      <button data-tab="backup" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
+        <i data-lucide="database-backup" class="w-4 h-4"></i>数据备份
+      </button>
+      <button data-tab="settings" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
+        <i data-lucide="settings" class="w-4 h-4"></i>站点配置
+      </button>
+    </div>
+
+    <!-- ===== 分类管理 ===== -->
+    <section id="tab-cats" class="tab-panel space-y-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4 text-indigo-500"></i>新增分类</h3>
+        <div class="flex flex-wrap gap-2">
+          <input id="newCatIcon" placeholder="图标(emoji)" maxlength="4" class="w-28 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <input id="newCatName" placeholder="分类名称，如：设计灵感" class="flex-1 min-w-[180px] px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <button id="addCatBtn" class="px-4 py-2 rounded-xl bg-indigo-500 text-white text-sm font-medium hover:bg-indigo-600 transition-colors cursor-pointer">添加</button>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50/60 dark:bg-gray-800/40">
+            <th class="px-5 py-3 font-medium">排序</th><th class="px-3 py-3 font-medium">图标</th><th class="px-3 py-3 font-medium">名称</th>
+            <th class="px-3 py-3 font-medium">网址数</th><th class="px-5 py-3 font-medium text-right">操作</th>
+          </tr></thead>
+          <tbody id="catTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== 网址管理 ===== -->
+    <section id="tab-sites" class="tab-panel hidden space-y-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 id="siteFormTitle" class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4 text-indigo-500"></i>新增网址</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <select id="siteCat" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></select>
+          <input id="siteTitle" placeholder="标题" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <div class="flex gap-2">
+            <input id="siteUrl" placeholder="https://…" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+            <button id="fetchMetaBtn" title="自动提取标题/描述/标签" class="flex items-center gap-1 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors cursor-pointer shrink-0 text-xs font-medium">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>提取
+            </button>
+            <button id="fetchIconBtn" title="自动获取图标" class="px-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer shrink-0">
+              <i data-lucide="image" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <input id="siteIcon" placeholder="图标 URL / 留空用字母头像" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+            <img id="iconPreview" class="w-9 h-9 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1 self-center" onerror="this.style.visibility='hidden'">
+          </div>
+          <input id="siteDesc" placeholder="描述（可选）" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <input id="siteTags" placeholder="标签，逗号分隔（可选）" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <div class="flex items-center gap-4 text-sm">
+            <label class="flex items-center gap-1.5 cursor-pointer"><input id="sitePinned" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">置顶</label>
+            <label class="flex items-center gap-1.5 cursor-pointer"><input id="siteHidden" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">隐藏</label>
+            <span class="ml-auto flex items-center gap-1.5 text-slate-400 text-xs">排序
+              <input id="siteSort" type="number" value="0" class="w-16 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400">
+            </span>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button id="saveSiteBtn" class="px-5 py-2 rounded-xl bg-indigo-500 text-white text-sm font-medium hover:bg-indigo-600 transition-colors cursor-pointer">保存</button>
+          <button id="resetSiteBtn" class="hidden px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">取消编辑</button>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50/60 dark:bg-gray-800/40">
+            <th class="px-5 py-3 font-medium">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell">分类</th>
+            <th class="px-3 py-3 font-medium hidden lg:table-cell">URL</th><th class="px-3 py-3 font-medium">状态</th>
+            <th class="px-5 py-3 font-medium text-right">操作</th>
+          </tr></thead>
+          <tbody id="siteTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== 数据备份 ===== -->
+    <section id="tab-backup" class="tab-panel hidden space-y-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 max-w-lg">
+        <h3 class="text-sm font-semibold mb-2 flex items-center gap-1.5"><i data-lucide="download" class="w-4 h-4 text-indigo-500"></i>导出 JSON 备份</h3>
+        <p class="text-xs text-slate-400 mb-4">导出全部分类与网址数据（JSON 格式），可用于备份或迁移。</p>
+        <button id="exportBtn" class="px-5 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">导出数据</button>
+        <hr class="my-6 border-gray-100 dark:border-gray-800">
+        <h3 class="text-sm font-semibold mb-2 flex items-center gap-1.5"><i data-lucide="hard-drive" class="w-4 h-4 text-indigo-500"></i>文件级备份</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">SQLite 数据库位于服务器 <code class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-slate-300">data/nav.db</code>，直接定期复制该目录即可完成备份，恢复时放回原位置并重启服务。</p>
+      </div>
+    </section>
+    <!-- ===== 站点配置 ===== -->
+    <section id="tab-settings" class="tab-panel hidden space-y-4">
+      <!-- 基本信息 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-3 flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4 text-indigo-500"></i>基本信息（标题 / 描述将用于 SEO 与社交分享）</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="text-xs text-slate-400 space-y-1">站点名称<input id="set_site_name" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">品牌图标（emoji，图片未设置时显示）<input id="set_brand_icon" placeholder="🧭 或 https://…" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">品牌图片（优先于 emoji 图标；URL 或站内路径，如 /brand-icon.png）<input id="set_brand_image" placeholder="https://… 或 /brand-icon.png" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">页面标题（浏览器标签 & SEO）<input id="set_site_title" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">主页标题（首页大字 H1）<input id="set_site_subtitle" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">站点描述（SEO description）<textarea id="set_site_description" rows="2" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition resize-none"></textarea></label>
+          <label class="text-xs text-slate-400 space-y-1">关键词（SEO keywords，逗号分隔）<input id="set_site_keywords" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">公告通知（留空不显示）<input id="set_announcement" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">页脚文字<input id="set_footer_text" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">备案号（留空不显示）<input id="set_icp" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">自定义 head 代码（CSS / JS / 统计代码，谨慎填写）<textarea id="set_custom_head" rows="3" placeholder="<style>…</style> 或 <script>…</script>" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono outline-none focus:border-indigo-400 transition resize-none"></textarea></label>
+        </div>
+      </div>
+
+      <!-- 搜索引擎 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="search" class="w-4 h-4 text-indigo-500"></i>搜索引擎（首页切换按钮，URL 中用 {query} 代表搜索词）</h3>
+        <div id="engineRows" class="space-y-2 mt-3"></div>
+        <button id="addEngineBtn" class="mt-3 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-indigo-500 text-xs font-medium hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer">+ 添加搜索引擎</button>
+      </div>
+
+      <!-- 顶部导航链接 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="navigation" class="w-4 h-4 text-indigo-500"></i>顶部导航链接（前台顶栏显示，最多 10 个）</h3>
+        <div id="navLinkRows" class="space-y-2 mt-3"></div>
+        <button id="addNavLinkBtn" class="mt-3 px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-indigo-500 text-xs font-medium hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors cursor-pointer">+ 添加导航链接</button>
+      </div>
+
+      <!-- SEO / robots.txt -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="bot" class="w-4 h-4 text-indigo-500"></i>robots.txt（在线编辑，保存后立即对 /robots.txt 生效）</h3>
+        <textarea id="set_robots_txt" rows="6" class="w-full mt-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono outline-none focus:border-indigo-400 transition resize-y"></textarea>
+      </div>
+
+      <div class="flex justify-end">
+        <button id="saveSettingsBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">保存站点配置</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm text-white bg-slate-800 dark:bg-slate-600 shadow-lg transition-all duration-300 opacity-0 pointer-events-none"></div>
+
+<script>
+/* ============ 基础 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500'];
+const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
+const icons = () => lucide.createIcons();
+
+let toastTimer;
+function toast(msg, ok = true) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = t.className.replace(/bg-\S+/g, '') + (ok ? ' bg-emerald-600' : ' bg-rose-500');
+  t.classList.remove('opacity-0');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add('opacity-0'), 2200);
+}
+
+/* ============ 主题 ============ */
+document.querySelectorAll('[data-theme]').forEach(b =>
+  b.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('navhub_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  }));
+
+/* ============ API ============ */
+const TOKEN_KEY = 'navhub_token';
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+async function api(path, body, method = 'POST') {
+  const res = await fetch(path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(getToken() ? { Authorization: 'Bearer ' + getToken() } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (res.status === 401) { logout(false); throw new Error('登录已过期'); }
+  const json = await res.json();
+  if (json.code !== 0) throw new Error(json.message || '操作失败');
+  return json.data;
+}
+
+function logout(redirect = true) {
+  localStorage.removeItem(TOKEN_KEY);
+  $('panelView').classList.add('hidden');
+  $('loginView').classList.remove('flex');
+  $('loginView').classList.remove('hidden');
+  $('loginView').classList.add('flex');
+  if (redirect) toast('已退出登录');
+}
+</script>
+
+<script>
+/* ============ 登录 ============ */
+async function doLogin() {
+  try {
+    const data = await api('/api/admin/login', { username: $('loginUser').value.trim(), password: $('loginPass').value });
+    localStorage.setItem(TOKEN_KEY, data.token);
+    $('loginErr').classList.add('hidden');
+    enterPanel();
+  } catch (e) {
+    $('loginErr').textContent = e.message === '登录已过期' ? '请重新登录' : (e.message || '登录失败');
+    $('loginErr').classList.remove('hidden');
+  }
+}
+$('loginBtn').addEventListener('click', doLogin);
+$('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('logoutBtn').addEventListener('click', () => logout());
+
+/* ============ Tab 切换 ============ */
+document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b === btn;
+    b.classList.toggle('bg-indigo-50', on);
+    b.classList.toggle('dark:bg-indigo-500/15', on);
+    b.classList.toggle('text-indigo-600', on);
+    b.classList.toggle('dark:text-indigo-400', on);
+    b.classList.toggle('text-slate-500', !on);
+    b.classList.toggle('dark:text-slate-400', !on);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  $('tab-' + btn.dataset.tab).classList.remove('hidden');
+  if (btn.dataset.tab === 'settings' && !settingsLoaded) {
+    loadSettings().catch(e => toast(e.message, false));
+  }
+}));
+
+/* ============ 数据 ============ */
+let CATS = [], SITES = [], editSiteId = null, editCatId = null;
+
+async function loadAll() {
+  const data = await api('/api/admin/data', null, 'GET');
+  CATS = data.categories;
+  SITES = data.sites;
+  renderCats();
+  renderSites();
+  renderCatSelect();
+}
+
+function enterPanel() {
+  $('loginView').classList.add('hidden');
+  $('panelView').classList.remove('hidden');
+  loadAll().then(() => icons()).catch(e => toast(e.message, false));
+}
+
+/* ============ 分类 ============ */
+function renderCats() {
+  const tbody = $('catTable');
+  tbody.innerHTML = CATS.map((c, i) => `
+    <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
+      <td class="px-5 py-2.5">
+        <span class="inline-flex gap-0.5">
+          <button data-cat-up="${i}" ${i === 0 ? 'disabled' : ''} class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-slate-400 hover:text-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors" title="上移"><i data-lucide="arrow-up" class="w-3.5 h-3.5"></i></button>
+          <button data-cat-down="${i}" ${i === CATS.length - 1 ? 'disabled' : ''} class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-slate-400 hover:text-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors" title="下移"><i data-lucide="arrow-down" class="w-3.5 h-3.5"></i></button>
+        </span>
+      </td>
+      <td class="px-3 py-2.5"><span class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center">${c.icon || '📁'}</span></td>
+      <td class="px-3 py-2.5 font-medium">${esc(c.name)}</td>
+      <td class="px-3 py-2.5 text-slate-400">${SITES.filter(s => s.category_id === c.id).length}</td>
+      <td class="px-5 py-2.5 text-right">
+        <button data-cat-edit="${c.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="编辑"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+        <button data-cat-del="${c.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </td>
+    </tr>`).join('');
+  icons();
+}
+
+$('addCatBtn').addEventListener('click', async () => {
+  const name = $('newCatName').value.trim();
+  if (!name) return toast('请输入分类名称', false);
+  try {
+    await api('/api/admin/categories', { action: 'create', name, icon: $('newCatIcon').value.trim() });
+    $('newCatName').value = ''; $('newCatIcon').value = '';
+    toast('分类已添加');
+    await loadAll();
+  } catch (e) { toast(e.message, false); }
+});
+
+$('catTable').addEventListener('click', async e => {
+  const up = e.target.closest('[data-cat-up]'), down = e.target.closest('[data-cat-down]');
+  const edit = e.target.closest('[data-cat-edit]'), del = e.target.closest('[data-cat-del]');
+  try {
+    if (up || down) {
+      const i = +(up || down).dataset[up ? 'catUp' : 'catDown'];
+      const j = up ? i - 1 : i + 1;
+      [CATS[i], CATS[j]] = [CATS[j], CATS[i]];
+      await api('/api/admin/categories', { action: 'reorder', ids: CATS.map(c => c.id) });
+      await loadAll();
+    } else if (edit) {
+      const c = CATS.find(x => x.id === +edit.dataset.catEdit);
+      const name = prompt('分类名称：', c.name);
+      if (name === null) return;
+      const icon = prompt('分类图标（emoji）：', c.icon || '');
+      if (icon === null) return;
+      await api('/api/admin/categories', { action: 'update', id: c.id, name: name.trim() || c.name, icon });
+      toast('已保存');
+      await loadAll();
+    } else if (del) {
+      const c = CATS.find(x => x.id === +del.dataset.catDel);
+      const n = SITES.filter(s => s.category_id === c.id).length;
+      if (!confirm(`删除分类「${c.name}」？其下 ${n} 个网址将一并删除。`)) return;
+      await api('/api/admin/categories', { action: 'delete', id: c.id });
+      toast('已删除');
+      await loadAll();
+    }
+  } catch (err) { toast(err.message, false); }
+});
+
+/* ============ 网址 ============ */
+function renderCatSelect() {
+  $('siteCat').innerHTML = CATS.map(c => `<option value="${c.id}">${esc(c.icon || '')} ${esc(c.name)}</option>`).join('');
+}
+
+function resetSiteForm() {
+  editSiteId = null;
+  ['siteTitle', 'siteUrl', 'siteIcon', 'siteDesc', 'siteTags'].forEach(id => $(id).value = '');
+  $('sitePinned').checked = $('siteHidden').checked = false;
+  $('siteSort').value = 0;
+  $('iconPreview').style.visibility = 'hidden';
+  $('resetSiteBtn').classList.add('hidden');
+  $('siteFormTitle').innerHTML = '<i data-lucide="plus" class="w-4 h-4 text-indigo-500"></i>新增网址';
+  icons();
+}
+
+function renderSites() {
+  const tbody = $('siteTable');
+  tbody.innerHTML = SITES.map(s => {
+    const cat = CATS.find(c => c.id === s.category_id);
+    return `
+    <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
+      <td class="px-5 py-2.5">
+        <div class="flex items-center gap-2.5">
+          <span class="relative w-8 h-8 shrink-0">
+            ${s.icon ? `<img src="${esc(s.icon)}" class="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-0.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+            <span class="w-8 h-8 rounded-lg items-center justify-center text-xs font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
+          </span>
+          <span class="font-medium">${esc(s.title)}</span>
+        </div>
+      </td>
+      <td class="px-3 py-2.5 text-slate-500 hidden md:table-cell">${cat ? esc(cat.name) : '—'}</td>
+      <td class="px-3 py-2.5 text-slate-400 text-xs hidden lg:table-cell max-w-[220px] truncate">${esc(s.url)}</td>
+      <td class="px-3 py-2.5">
+        <span class="inline-flex gap-1">
+          ${s.is_pinned ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500">置顶</span>' : ''}
+          ${s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">隐藏</span>' : ''}
+          ${!s.is_pinned && !s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-slate-100 dark:bg-gray-800 text-slate-400">正常</span>' : ''}
+        </span>
+      </td>
+      <td class="px-5 py-2.5 text-right whitespace-nowrap">
+        <button data-site-edit="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="编辑"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+        <button data-site-pin="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="置顶/取消置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></button>
+        <button data-site-hide="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 cursor-pointer transition-colors" title="显示/隐藏"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i></button>
+        <button data-site-del="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+  icons();
+}
+
+async function saveSite() {
+  const body = {
+    category_id: +$('siteCat').value,
+    title: $('siteTitle').value.trim(),
+    url: $('siteUrl').value.trim(),
+    description: $('siteDesc').value.trim(),
+    tags: $('siteTags').value.trim(),
+    icon: $('siteIcon').value.trim(),
+    is_pinned: $('sitePinned').checked ? 1 : 0,
+    is_hidden: $('siteHidden').checked ? 1 : 0,
+    sort_order: +$('siteSort').value || 0,
+  };
+  if (!body.title || !body.url) return toast('标题和网址必填', false);
+  if (!/^https?:\/\//i.test(body.url)) body.url = 'https://' + body.url;
+  try {
+    if (editSiteId) { await api('/api/admin/sites', { action: 'update', id: editSiteId, ...body }); toast('已保存'); }
+    else { await api('/api/admin/sites', { action: 'create', ...body }); toast('网址已添加'); }
+    resetSiteForm();
+    await loadAll();
+  } catch (e) { toast(e.message, false); }
+}
+$('saveSiteBtn').addEventListener('click', saveSite);
+$('resetSiteBtn').addEventListener('click', resetSiteForm);
+
+$('fetchIconBtn').addEventListener('click', async () => {
+  const url = $('siteUrl').value.trim();
+  if (!url) return toast('请先填写网址', false);
+  try {
+    const data = await api('/api/admin/fetch-favicon', { url });
+    $('siteIcon').value = data.icon;
+    $('iconPreview').src = data.icon;
+    $('iconPreview').style.visibility = 'visible';
+    toast('图标已获取');
+  } catch (e) { toast(e.message, false); }
+});
+
+/* 一键提取标题/描述/标签（只填空字段，不覆盖已手动填写的内容） */
+$('fetchMetaBtn').addEventListener('click', async () => {
+  const url = $('siteUrl').value.trim();
+  if (!url) return toast('请先填写网址', false);
+  const btn = $('fetchMetaBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  try {
+    const data = await api('/api/admin/fetch-meta', { url });
+    const filled = [];
+    if (!$('siteTitle').value.trim() && data.title) { $('siteTitle').value = data.title; filled.push('标题'); }
+    if (!$('siteDesc').value.trim() && data.description) { $('siteDesc').value = data.description; filled.push('描述'); }
+    if (!$('siteTags').value.trim() && data.tags) { $('siteTags').value = data.tags; filled.push('标签'); }
+    if (filled.length) toast('已提取：' + filled.join('、'));
+    else toast('没有可提取的新内容（字段已有值或网页无信息）');
+  } catch (e) {
+    toast(e.message, false);
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
+});
+$('siteIcon').addEventListener('input', () => {
+  if ($('siteIcon').value.trim()) { $('iconPreview').src = $('siteIcon').value.trim(); $('iconPreview').style.visibility = 'visible'; }
+  else $('iconPreview').style.visibility = 'hidden';
+});
+
+$('siteTable').addEventListener('click', async e => {
+  const edit = e.target.closest('[data-site-edit]'), pin = e.target.closest('[data-site-pin]');
+  const hide = e.target.closest('[data-site-hide]'), del = e.target.closest('[data-site-del]');
+  try {
+    if (edit) {
+      const s = SITES.find(x => x.id === +edit.dataset.siteEdit);
+      editSiteId = s.id;
+      $('siteCat').value = s.category_id;
+      $('siteTitle').value = s.title; $('siteUrl').value = s.url;
+      $('siteDesc').value = s.description || ''; $('siteTags').value = s.tags || '';
+      $('siteIcon').value = s.icon || '';
+      if (s.icon) { $('iconPreview').src = s.icon; $('iconPreview').style.visibility = 'visible'; }
+      $('sitePinned').checked = !!s.is_pinned; $('siteHidden').checked = !!s.is_hidden;
+      $('siteSort').value = s.sort_order || 0;
+      $('resetSiteBtn').classList.remove('hidden');
+      $('siteFormTitle').innerHTML = '<i data-lucide="pencil" class="w-4 h-4 text-indigo-500"></i>编辑网址';
+      icons();
+      scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (pin) {
+      const s = SITES.find(x => x.id === +pin.dataset.sitePin);
+      await api('/api/admin/sites', { action: 'toggle', id: s.id, field: 'is_pinned', value: s.is_pinned ? 0 : 1 });
+      await loadAll();
+    } else if (hide) {
+      const s = SITES.find(x => x.id === +hide.dataset.siteHide);
+      await api('/api/admin/sites', { action: 'toggle', id: s.id, field: 'is_hidden', value: s.is_hidden ? 0 : 1 });
+      await loadAll();
+    } else if (del) {
+      const s = SITES.find(x => x.id === +del.dataset.siteDel);
+      if (!confirm(`删除网址「${s.title}」？`)) return;
+      await api('/api/admin/sites', { action: 'delete', id: s.id });
+      toast('已删除');
+      await loadAll();
+    }
+  } catch (err) { toast(err.message, false); }
+});
+
+/* ============ 投稿审核 ============ */
+const SUB_STATUS = {
+  pending:  '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">待审核</span>',
+  approved: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">已收录</span>',
+  rejected: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-400">已拒绝</span>',
+};
+
+function renderSubs() {
+  const tbody = $('subTable');
+  if (!SUBS.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-center text-slate-400">暂无投稿</td></tr>';
+    return;
+  }
+  tbody.innerHTML = SUBS.map(s => `
+    <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors align-top">
+      <td class="px-5 py-3 max-w-[380px]">
+        <div class="font-medium truncate">${esc(s.title)}</div>
+        <a href="${esc(s.url)}" target="_blank" rel="noopener" class="text-xs text-indigo-500 hover:underline break-all">${esc(s.url)}</a>
+        ${s.description ? `<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">${esc(s.description)}</div>` : ''}
+        ${s.tags ? `<div class="text-[11px] text-slate-400 mt-1">标签：${esc(s.tags)}</div>` : ''}
+        <div class="text-[11px] text-slate-400 mt-1">${esc(s.created_at || '')}</div>
+      </td>
+      <td class="px-3 py-3 text-slate-500 text-xs hidden md:table-cell">${esc(s.contact || '—')}</td>
+      <td class="px-3 py-3">${SUB_STATUS[s.status] || esc(s.status)}</td>
+      <td class="px-5 py-3 text-right whitespace-nowrap">
+        ${s.status === 'pending' ? `
+          <select data-sub-cat="${s.id}" class="w-28 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs outline-none focus:border-indigo-400 transition align-middle">
+            ${CATS.map(c => `<option value="${c.id}">${esc(c.icon || '')} ${esc(c.name)}</option>`).join('')}
+          </select>
+          <button data-sub-approve="${s.id}" class="px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-600 transition-colors cursor-pointer align-middle">收录</button>
+          <button data-sub-reject="${s.id}" class="px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors cursor-pointer align-middle">拒绝</button>
+        ` : ''}
+        <button data-sub-del="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors align-middle" title="删除记录"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </td>
+    </tr>`).join('');
+  icons();
+}
+
+async function loadSubs() {
+  SUBS = await api('/api/admin/submissions', null, 'GET');
+  renderSubs();
+}
+
+$('subTable').addEventListener('click', async e => {
+  const approve = e.target.closest('[data-sub-approve]');
+  const reject = e.target.closest('[data-sub-reject]');
+  const del = e.target.closest('[data-sub-del]');
+  try {
+    if (approve) {
+      const id = +approve.dataset.subApprove;
+      const category_id = +document.querySelector(`[data-sub-cat="${id}"]`).value;
+      await api('/api/admin/submissions', { action: 'approve', id, category_id });
+      toast('已收录到导航');
+      await Promise.all([loadAll(), loadSubs()]);
+    } else if (reject) {
+      if (!confirm('拒绝该投稿？')) return;
+      await api('/api/admin/submissions', { action: 'reject', id: +reject.dataset.subReject });
+      toast('已拒绝');
+      await Promise.all([loadAll(), loadSubs()]);
+    } else if (del) {
+      if (!confirm('删除该投稿记录？')) return;
+      await api('/api/admin/submissions', { action: 'delete', id: +del.dataset.subDel });
+      toast('已删除');
+      await Promise.all([loadAll(), loadSubs()]);
+    }
+  } catch (err) { toast(err.message, false); }
+});
+
+/* ============ 导出 ============ */
+$('exportBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/api/admin/export', { headers: { Authorization: 'Bearer ' + getToken() } });
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'navhub-backup.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('已导出');
+  } catch (e) { toast(e.message, false); }
+});
+
+/* ============ 站点配置 ============ */
+let settingsLoaded = false;
+let engineList = [];
+
+const SET_FIELDS = ['site_name', 'site_title', 'site_subtitle', 'site_description', 'site_keywords',
+  'footer_text', 'icp', 'announcement', 'brand_icon', 'custom_head'];
+
+async function loadSettings() {
+  const s = await api('/api/admin/settings', null, 'GET');
+  SET_FIELDS.forEach(k => { const el = $('set_' + k); if (el) el.value = s[k] ?? ''; });
+  $('set_robots_txt').value = s.robots_txt ?? '';
+  engineList = Array.isArray(s.engines) ? [...s.engines] : [];
+  renderEngineRows();
+  settingsLoaded = true;
+}
+
+function renderEngineRows() {
+  $('engineRows').innerHTML = engineList.map((e, i) => `
+    <div class="flex gap-2 items-center">
+      <input data-eng-name="${i}" value="${esc(e.name)}" placeholder="名称" class="w-28 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <input data-eng-url="${i}" value="${esc(e.url)}" placeholder="https://…/search?q={query}" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <button data-eng-del="${i}" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0" title="删除">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('') || '<p class="text-xs text-slate-400">暂无搜索引擎，点击下方按钮添加</p>';
+  icons();
+}
+
+$('addEngineBtn').addEventListener('click', () => {
+  engineList.push({ name: '', url: 'https://www.google.com/search?q={query}' });
+  renderEngineRows();
+});
+
+$('engineRows').addEventListener('click', async e => {
+  const del = e.target.closest('[data-eng-del]');
+  if (!del) return;
+  const i = +del.dataset.engDel;
+  if (!engineList[i]?.name && !confirm('删除该搜索引擎？')) return;
+  engineList.splice(i, 1);
+  renderEngineRows();
+});
+
+$('saveSettingsBtn').addEventListener('click', async () => {
+  document.querySelectorAll('[data-eng-name]').forEach(inp => { engineList[+inp.dataset.engName].name = inp.value; });
+  document.querySelectorAll('[data-eng-url]').forEach(inp => { engineList[+inp.dataset.engUrl].url = inp.value; });
+  document.querySelectorAll('[data-nav-label]').forEach(inp => { navLinkList[+inp.dataset.navLabel].label = inp.value; });
+  document.querySelectorAll('[data-nav-url]').forEach(inp => { navLinkList[+inp.dataset.navUrl].url = inp.value; });
+  const body = {};
+  SET_FIELDS.forEach(k => { body[k] = $('set_' + k).value; });
+  body.robots_txt = $('set_robots_txt').value;
+  body.engines = engineList;
+  body.nav_links = navLinkList;
+  try {
+    await api('/api/admin/settings', body);
+    toast('站点配置已保存，前台刷新即可生效');
+  } catch (e) { toast(e.message, false); }
+});
+
+/* ============ 启动 ============ */
+icons();
+if (getToken()) {
+  enterPanel();
+} else {
+  $('loginView').classList.remove('hidden');
+  $('loginView').classList.add('flex');
+}
+</script>
+</body>
+</html>

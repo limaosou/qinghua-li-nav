@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!--SSR_TITLE--></title>
+<meta name="description" content="<!--SSR_DESCRIPTION-->">
+<meta name="keywords" content="<!--SSR_KEYWORDS-->">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#4F46E5">
+<!--SSR_FAVICON-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<!--SSR_SITE_NAME-->">
+<meta property="og:title" content="<!--SSR_TITLE-->">
+<meta property="og:description" content="<!--SSR_DESCRIPTION-->">
+<link rel="canonical" href="<!--SSR_CANONICAL-->">
+<meta property="og:url" content="<!--SSR_CANONICAL-->">
+<!--SSR_JSONLD-->
+<!--SSR_CUSTOM_HEAD-->
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } }
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  html { scroll-padding-top: 96px; }
+  .card-hover { transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease; }
+  .card-hover:hover { transform: translateY(-2px); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+  kbd { font-family: inherit; }
+  /* 背景光晕装饰 */
+  .bg-deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg-deco::before, .bg-deco::after {
+    content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .18;
+  }
+  .bg-deco::before { width: 480px; height: 480px; top: -160px; left: -120px; background: radial-gradient(circle, #6366f1, transparent 70%); }
+  .bg-deco::after  { width: 520px; height: 520px; top: -120px; right: -160px; background: radial-gradient(circle, #0ea5e9, transparent 70%); }
+  .dark .bg-deco::before, .dark .bg-deco::after { opacity: .12; }
+  /* 卡片图标悬停微缩放 */
+  .card-hover img, .card-hover > div:first-child > div:first-child span { transition: transform .25s ease; }
+  .card-hover:hover img { transform: scale(1.1); }
+  /* 弹窗入场动画 */
+  @keyframes pop-in { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .pop-in { animation: pop-in .22s cubic-bezier(.16,1,.3,1); }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .card-hover, .card-hover:hover { transition: none; transform: none; }
+  }
+</style>
+</head>
+<body class="bg-[#F5F5F7] dark:bg-gray-950 text-slate-900 dark:text-slate-200 min-h-screen flex flex-col antialiased">
+<div class="bg-deco" aria-hidden="true"></div>
+
+<!-- ===== 顶栏 ===== -->
+<header class="sticky top-0 z-40 backdrop-blur-xl bg-white/75 dark:bg-gray-900/75 border-b border-gray-200/80 dark:border-gray-800">
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5 font-bold text-lg tracking-tight cursor-pointer">
+      <!--SSR_BRAND-->
+    </a>
+    <div class="flex items-center gap-1.5">
+      <!--SSR_NAV_LINKS-->
+      <button id="suggestBtn" title="推荐好站" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-200 cursor-pointer">
+        <i data-lucide="hand-heart" class="w-4 h-4"></i>推荐站点
+      </button>
+      <a href="/admin" title="后台管理" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-indigo-500 transition-colors duration-200 cursor-pointer">
+        <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]"></i>
+      </a>
+      <button id="themeBtn" title="切换主题" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-indigo-500 transition-colors duration-200 cursor-pointer">
+        <i data-lucide="moon" class="w-[18px] h-[18px] hidden dark:block"></i>
+        <i data-lucide="sun" class="w-[18px] h-[18px] block dark:hidden"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+
+  <!-- 公告通知（后台可配置） -->
+  <!--SSR_ANNOUNCEMENT-->
+
+  <!-- ===== 搜索区 ===== -->
+  <section class="mb-10">
+    <div class="max-w-2xl mx-auto text-center">
+      <p id="greeting" class="text-sm text-slate-500 dark:text-slate-400 mb-1"></p>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-5">
+        <span class="bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500 bg-clip-text text-transparent"><!--SSR_H1--></span>
+      </h1>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-[0_2px_16px_rgba(15,23,42,0.04)] p-4">
+        <div class="flex flex-wrap items-center gap-1.5 mb-3" id="engineTabs"></div>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"></i>
+            <input id="searchInput" type="text" autocomplete="off" placeholder="搜索站内网址…"
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[15px] outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15 dark:focus:ring-indigo-400/20 transition duration-200 placeholder:text-slate-400">
+          </div>
+          <button id="searchBtn" class="px-5 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 transition duration-200 cursor-pointer">
+            搜索
+          </button>
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-slate-400 dark:text-slate-500">输入即实时过滤 · 回车用当前引擎搜索</p>
+    </div>
+  </section>
+
+  <!-- ===== 移动端分类横滑 ===== -->
+  <nav id="catNavMobile" class="lg:hidden mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4"><!--SSR_CATNAV_MOBILE--></nav>
+
+  <div class="grid lg:grid-cols-[220px,1fr] gap-8">
+    <!-- 侧栏分类 -->
+    <aside class="hidden lg:block">
+      <nav id="catNav" class="sticky top-20 space-y-1" aria-label="分类导航"><!--SSR_CATNAV--></nav>
+    </aside>
+
+    <!-- 分类内容 -->
+    <div id="content" class="space-y-10 min-w-0"><!--SSR_CONTENT--></div>
+  </div>
+
+  <div id="emptyTip" class="hidden flex-col items-center text-slate-400 dark:text-slate-500 py-20">
+    <i data-lucide="search-x" class="w-10 h-10 mb-3"></i>
+    <p class="text-sm">没有匹配的网址，换个关键词试试</p>
+  </div>
+</main>
+
+<!-- 投稿弹窗 -->
+<div id="suggestModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm" data-modal-close></div>
+  <div class="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-2xl p-6 pop-in" role="dialog" aria-modal="true" aria-label="推荐站点">
+    <button data-modal-close class="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" aria-label="关闭">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+    <h2 class="text-lg font-bold tracking-tight mb-1 flex items-center gap-2">
+      <i data-lucide="hand-heart" class="w-5 h-5 text-indigo-500"></i>推荐一个好站
+    </h2>
+    <p class="text-xs text-slate-400 mb-4">提交后由站长审核，通过即展示在导航里</p>
+    <div class="space-y-2.5">
+      <input id="subTitle" maxlength="60" placeholder="网站名称 *" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <input id="subUrl" placeholder="网址，如 https://example.com *" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <textarea id="subDesc" maxlength="200" rows="2" placeholder="一句话介绍（选填）" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition resize-none"></textarea>
+      <input id="subTags" maxlength="100" placeholder="标签，逗号分隔（选填）" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <input id="subContact" maxlength="100" placeholder="联系方式（选填，仅站长可见）" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <button id="subSubmitBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 transition duration-200 cursor-pointer">提交推荐</button>
+      <p id="subMsg" class="hidden text-xs text-center"></p>
+    </div>
+  </div>
+</div>
+
+<!-- 回到顶部 -->
+<button id="backTop" class="fixed bottom-6 right-6 z-40 w-10 h-10 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg flex items-center justify-center text-slate-500 hover:text-indigo-500 transition-all duration-200 opacity-0 pointer-events-none cursor-pointer" aria-label="回到顶部">
+  <i data-lucide="arrow-up" class="w-4 h-4"></i>
+</button>
+
+<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+  <!--SSR_FOOTER-->
+</footer>
+
+<!--SSR_DATA-->
+<script>
+/* ================= 主题 ================= */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  root.classList.toggle('dark');
+  localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
+});
+
+/* ================= 问候语 ================= */
+(() => {
+  const h = new Date().getHours();
+  const g = h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 14 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+  document.getElementById('greeting').textContent = g + '，从这里出发 ✦';
+})();
+
+/* ================= 工具 ================= */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
+const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
+
+/* ================= 搜索引擎（后台可配置） ================= */
+const FALLBACK_ENGINES = [
+  { name: '百度',       url: 'https://www.baidu.com/s?wd={query}' },
+  { name: 'Google',     url: 'https://www.google.com/search?q={query}' },
+  { name: 'Bing',       url: 'https://www.bing.com/search?q={query}' },
+  { name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q={query}' },
+];
+let ENGINES = (window.__SETTINGS__?.engines?.length) ? window.__SETTINGS__.engines : FALLBACK_ENGINES;
+let engine = localStorage.getItem('navhub_engine') || '0';
+
+const engineTabs = document.getElementById('engineTabs');
+function renderEngines() {
+  engineTabs.innerHTML = ENGINES.map((e, i) => `
+    <button data-engine="${i}" class="px-3 py-1 rounded-full text-xs font-medium border transition-colors duration-200 cursor-pointer
+      ${String(i) === String(engine)
+        ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30'
+        : 'bg-transparent text-slate-500 dark:text-slate-400 border-gray-200 dark:border-gray-700 hover:border-indigo-300 hover:text-indigo-500'}">
+      ${esc(e.name)}
+    </button>`).join('');
+  engineTabs.querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => { engine = b.dataset.engine; localStorage.setItem('navhub_engine', engine); renderEngines(); }));
+}
+renderEngines();
+
+/* ================= 渲染导航数据 ================= */
+let NAV_DATA = [];
+
+function cardHTML(s, i) {
+  const tags = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  return `
+  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
+     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]">
+    ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
+    <div class="flex items-center gap-3">
+      <div class="relative w-10 h-10 shrink-0">
+        ${s.icon ? `<img src="${esc(s.icon)}" alt="" class="w-10 h-10 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="w-10 h-10 rounded-xl items-center justify-center text-sm font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
+      </div>
+      <div class="min-w-0 pr-4">
+        <div class="font-medium text-[15px] truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200">${esc(s.title)}</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(s.description || s.url)}</div>
+      </div>
+    </div>
+    ${tags.length ? `<div class="mt-2.5 flex flex-wrap gap-1.5">${tags.map(t => `<span class="px-2 py-0.5 rounded-full text-[11px] bg-slate-50 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-100 dark:border-gray-700">${esc(t)}</span>`).join('')}</div>` : ''}
+  </a>`;
+}
+
+function render() {
+  const catNav = document.getElementById('catNav');
+  const catNavMobile = document.getElementById('catNavMobile');
+  const content = document.getElementById('content');
+
+  catNav.innerHTML = NAV_DATA.map(c => `
+    <a href="#cat-${c.id}" class="cat-link flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 transition-colors duration-200 cursor-pointer" data-cat="${c.id}">
+      <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${c.icon || '📁'}</span>
+      <span class="truncate">${esc(c.name)}</span>
+      <span class="ml-auto text-[11px] text-slate-400 dark:text-slate-500">${c.sites.length}</span>
+    </a>`).join('');
+
+  catNavMobile.innerHTML = NAV_DATA.map(c => `
+    <a href="#cat-${c.id}" class="cat-chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-slate-600 dark:text-slate-300 cursor-pointer">${c.icon || ''} ${esc(c.name)}</a>`).join('');
+
+  content.innerHTML = NAV_DATA.map(c => `
+    <section id="cat-${c.id}" class="scroll-mt-24">
+      <div class="flex items-center gap-2.5 mb-4">
+        <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-base">${c.icon || '📁'}</span>
+        <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        ${c.sites.map((s, i) => cardHTML(s, i)).join('')}
+      </div>
+    </section>`).join('');
+
+  lucide.createIcons();
+  setupScrollSpy();
+}
+
+/* ================= 滚动高亮 ================= */
+let spyObserver;
+function setupScrollSpy() {
+  spyObserver?.disconnect();
+  const links = [...document.querySelectorAll('.cat-link')];
+  spyObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id.replace('cat-', '');
+      links.forEach(l => {
+        const on = l.dataset.cat === id;
+        l.classList.toggle('bg-indigo-50', on);
+        l.classList.toggle('dark:bg-indigo-500/10', on);
+        l.classList.toggle('text-indigo-600', on);
+        l.classList.toggle('dark:text-indigo-400', on);
+      });
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('section[id^="cat-"]').forEach(s => spyObserver.observe(s));
+}
+
+/* ================= 站内实时过滤 ================= */
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  let total = 0;
+  NAV_DATA.forEach(c => {
+    const sec = document.getElementById('cat-' + c.id);
+    if (!sec) return;
+    let shown = 0;
+    sec.querySelectorAll('a[href]').forEach(a => {
+      const s = c.sites[+a.dataset.idx];
+      const hit = !q || [s.title, s.description, s.tags, s.url].some(v => String(v || '').toLowerCase().includes(q));
+      a.classList.toggle('hidden', !hit);
+      if (hit) shown++;
+    });
+    sec.classList.toggle('hidden', shown === 0);
+    total += shown;
+  });
+  document.getElementById('emptyTip').classList.toggle('hidden', total > 0);
+  document.getElementById('emptyTip').classList.toggle('flex', total === 0);
+});
+document.getElementById('searchBtn').addEventListener('click', () => {
+  const q = searchInput.value.trim();
+  if (!q) return;
+  const eng = ENGINES[+engine] || ENGINES[0];
+  window.open(eng.url.replace('{query}', encodeURIComponent(q)), '_blank');
+});
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('searchBtn').click();
+});
+
+/* ================= 投稿弹窗 ================= */
+(() => {
+  const modal = document.getElementById('suggestModal');
+  const msg = document.getElementById('subMsg');
+  const open = () => {
+    modal.classList.remove('hidden');
+    document.getElementById('subTitle').focus();
+  };
+  const close = () => {
+    modal.classList.add('hidden');
+    msg.classList.add('hidden');
+  };
+  document.getElementById('suggestBtn').addEventListener('click', open);
+  modal.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', close));
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+
+  document.getElementById('subSubmitBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('subSubmitBtn');
+    const title = document.getElementById('subTitle').value.trim();
+    const url = document.getElementById('subUrl').value.trim();
+    msg.classList.remove('hidden');
+    if (!title || !url) {
+      msg.textContent = '请填写网站名称和网址';
+      msg.className = 'text-xs text-center text-rose-500';
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/public/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title, url,
+          description: document.getElementById('subDesc').value.trim(),
+          tags: document.getElementById('subTags').value.trim(),
+          contact: document.getElementById('subContact').value.trim(),
+        }),
+      });
+      const json = await res.json();
+      msg.textContent = json.message || (json.code === 0 ? '提交成功' : '提交失败');
+      msg.className = 'text-xs text-center ' + (json.code === 0 ? 'text-emerald-500' : 'text-rose-500');
+      if (json.code === 0) {
+        ['subTitle', 'subUrl', 'subDesc', 'subTags', 'subContact'].forEach(id => document.getElementById(id).value = '');
+        setTimeout(close, 1600);
+      }
+    } catch {
+      msg.textContent = '网络异常，请稍后重试';
+      msg.className = 'text-xs text-center text-rose-500';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+
+/* ================= 回到顶部 ================= */
+const backTop = document.getElementById('backTop');
+addEventListener('scroll', () => {
+  const on = scrollY > 400;
+  backTop.classList.toggle('opacity-0', !on);
+  backTop.classList.toggle('pointer-events-none', !on);
+}, { passive: true });
+backTop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* ================= 加载数据 ================= */
+(async () => {
+  try {
+    if (window.__NAV__ && window.__NAV__.length) {
+      NAV_DATA = window.__NAV__; // 服务端已注入数据与预渲染 HTML
+    } else {
+      const res = await fetch('/api/public/nav');
+      const json = await res.json();
+      NAV_DATA = json.data || [];
+    }
+    render();
+  } catch {
+    document.getElementById('content').innerHTML =
+      '<p class="text-center text-slate-400 py-20">数据加载失败，请稍后刷新重试</p>';
+  }
+  // 非 SSR 场景下补充拉取站点配置（搜索引擎列表等）
+  if (!window.__SETTINGS__) {
+    try {
+      const r = await fetch('/api/public/settings');
+      const j = await r.json();
+      if (j.data?.engines?.length) { ENGINES = j.data.engines; renderEngines(); }
+    } catch { /* 忽略 */ }
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "navhub",
+  "version": "1.0.0",
+  "description": "NavHub - 响应式网址导航系统（前台展示 + 后台管理）",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "hash-password": "node scripts/hash-password.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2"
+  }
+}

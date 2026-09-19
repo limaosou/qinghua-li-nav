@@ -1,0 +1,177 @@
+/**
+ * 首页服务端渲染（SSR）：
+ * 把分类与网址直接渲染进 HTML 源码 —— 搜索引擎与 AI 爬虫（GPTBot 等，不执行 JS）可完整抓取内容。
+ * 同时注入 window.__NAV__ 数据，浏览器端跳过请求直接接管交互。
+ */
+const fs = require('fs');
+const path = require('path');
+const db = require('./db');
+const settings = require('./settings');
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
+const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
+
+function getNavData() {
+  const categories = db.prepare('SELECT id, name, icon FROM categories ORDER BY sort_order ASC, id ASC').all();
+  const siteStmt = db.prepare(`
+    SELECT id, category_id, title, url, description, tags, icon, is_pinned
+    FROM sites WHERE is_hidden = 0 AND category_id = ?
+    ORDER BY is_pinned DESC, sort_order ASC, id ASC`);
+  return categories.map((c) => ({ ...c, sites: siteStmt.all(c.id) }));
+}
+
+/* 与前端 index.html 中的模板保持一致 */
+function cardHTML(s, i) {
+  const tags = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  return `
+  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
+     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]">
+    ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
+    <div class="flex items-center gap-3">
+      <div class="relative w-10 h-10 shrink-0">
+        ${s.icon ? `<img src="${esc(s.icon)}" alt="${esc(s.title)}" class="w-10 h-10 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="w-10 h-10 rounded-xl items-center justify-center text-sm font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
+      </div>
+      <div class="min-w-0 pr-4">
+        <div class="font-medium text-[15px] truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200">${esc(s.title)}</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(s.description || s.url)}</div>
+      </div>
+    </div>
+    ${tags.length ? `<div class="mt-2.5 flex flex-wrap gap-1.5">${tags.map(t => `<span class="px-2 py-0.5 rounded-full text-[11px] bg-slate-50 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-100 dark:border-gray-700">${esc(t)}</span>`).join('')}</div>` : ''}
+  </a>`;
+}
+
+function renderFragments(data) {
+  const catnav = data.map(c => `
+    <a href="#cat-${c.id}" class="cat-link flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 transition-colors duration-200 cursor-pointer" data-cat="${c.id}">
+      <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${c.icon || '📁'}</span>
+      <span class="truncate">${esc(c.name)}</span>
+      <span class="ml-auto text-[11px] text-slate-400 dark:text-slate-500">${c.sites.length}</span>
+    </a>`).join('');
+
+  const catnavMobile = data.map(c => `
+    <a href="#cat-${c.id}" class="cat-chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-slate-600 dark:text-slate-300 cursor-pointer">${c.icon || ''} ${esc(c.name)}</a>`).join('');
+
+  const content = data.map(c => `
+    <section id="cat-${c.id}" class="scroll-mt-24" aria-label="${esc(c.name)}">
+      <div class="flex items-center gap-2.5 mb-4">
+        <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-base">${c.icon || '📁'}</span>
+        <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
+        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        ${c.sites.map((s, i) => cardHTML(s, i)).join('')}
+      </div>
+    </section>`).join('');
+
+  return { catnav, catnavMobile, content };
+}
+
+let templateCache = null;
+
+function baseUrl(req) {
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  return `${proto}://${host}`;
+}
+
+function buildJSONLD(data, base) {
+  const items = [];
+  let pos = 0;
+  for (const c of data) for (const s of c.sites) {
+    if (pos >= 100) break; // 控制体积
+    items.push({ '@type': 'ListItem', position: ++pos, name: `${c.name} - ${s.title}`, url: s.url });
+  }
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'WebSite', name: 'NavHub 网址导航', url: base + '/', description: '分类收录常用网站、开发工具、影视娱乐与学习资源的网址导航。', inLanguage: 'zh-CN' },
+      { '@type': 'ItemList', name: '收录网站列表', numberOfItems: items.length, itemListElement: items },
+    ],
+  };
+}
+
+/** 生成首页 HTML（SSR） */
+function renderNavPage(req) {
+  if (!templateCache) {
+    templateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  }
+  const data = getNavData();
+  const s = settings.getSettings();
+  const frag = renderFragments(data);
+  const base = baseUrl(req);
+  // JSON 内的 </script> 需要转义，防止提前闭合脚本标签
+  const navJSON = JSON.stringify(data).replace(/</g, '\\u003c');
+  const settingsJSON = JSON.stringify(settings.getPublicSettings()).replace(/</g, '\\u003c');
+
+  // 品牌图标：图片优先（图 + 站名），否则 emoji 渐变方块 + 站名
+  const brandHTML = s.brand_image
+    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
+      + `<span>${esc(s.site_name)}</span>`
+    : `<span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-sm text-base">${esc(s.brand_icon || '🧭')}</span>`
+      + `<span>${esc(s.site_name)}</span>`;
+
+  // 浏览器标签页 favicon：品牌图片优先，否则用品牌 emoji 动态生成 SVG
+  const faviconHTML = s.brand_image
+    ? `<link rel="icon" type="image/png" href="${esc(s.brand_image)}">`
+    : `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${s.brand_icon || '🧭'}</text></svg>`)}">`;
+
+  const announceHTML = String(s.announcement || '').trim()
+    ? `<div class="max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-sm text-indigo-700 dark:text-indigo-300">
+         <i data-lucide="megaphone" class="w-4 h-4 shrink-0"></i><span>${esc(s.announcement)}</span>
+       </div>`
+    : '';
+
+  const icpHTML = String(s.icp || '').trim()
+    ? ` · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="hover:text-indigo-500 transition-colors">${esc(s.icp)}</a>`
+    : '';
+
+  // 顶部导航链接（后台可配置）
+  const navLinks = Array.isArray(s.nav_links) ? s.nav_links.filter(l => l?.label && l?.url) : [];
+  const navLinksHTML = navLinks.length
+    ? `<nav class="hidden md:flex items-center gap-1 mr-1" aria-label="顶部导航">
+        ${navLinks.map(l => `<a href="${esc(l.url)}" ${/^https?:\/\//.test(l.url) ? 'target="_blank" rel="noopener"' : ''} class="px-2.5 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200">${esc(l.label)}</a>`).join('')}
+      </nav>`
+    : '';
+
+  return templateCache
+    .replaceAll('<!--SSR_TITLE-->', esc(s.site_title))
+    .replaceAll('<!--SSR_DESCRIPTION-->', esc(s.site_description))
+    .replaceAll('<!--SSR_KEYWORDS-->', esc(s.site_keywords))
+    .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
+    .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
+    .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base)).replace(/</g, '\\u003c')}</script>`)
+    .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
+    .replaceAll('<!--SSR_FAVICON-->', faviconHTML)
+    .replaceAll('<!--SSR_NAV_LINKS-->', navLinksHTML)
+    .replaceAll('<!--SSR_BRAND-->', brandHTML)
+    .replaceAll('<!--SSR_ANNOUNCEMENT-->', announceHTML)
+    .replaceAll('<!--SSR_H1-->', esc(s.site_subtitle))
+    .replaceAll('<!--SSR_FOOTER-->', `${esc(s.footer_text)}${icpHTML} · <a href="/admin" class="text-indigo-500 hover:underline">管理</a>`)
+    .replaceAll('<!--SSR_CATNAV-->', frag.catnav)
+    .replaceAll('<!--SSR_CATNAV_MOBILE-->', frag.catnavMobile)
+    .replaceAll('<!--SSR_CONTENT-->', frag.content)
+    .replaceAll('<!--SSR_DATA-->', `<script>window.__NAV__=${navJSON};window.__SETTINGS__=${settingsJSON};</script>`);
+}
+
+/** 生成 llms.txt（面向 AI 搜索引擎的内容清单，GEO 优化） */
+function renderLLMsTxt(req) {
+  const data = getNavData();
+  const lines = [
+    '# NavHub 网址导航',
+    '',
+    '> 简洁好用的中文网址导航站。分类收录常用网站、开发工具、影视娱乐与学习资源，支持多引擎搜索、站内实时搜索与深色模式。',
+    '',
+  ];
+  for (const c of data) {
+    lines.push(`## ${c.name}`);
+    for (const s of c.sites) {
+      lines.push(`- [${s.title}](${s.url})${s.description ? `：${s.description}` : ''}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+module.exports = { renderNavPage, renderLLMsTxt };
