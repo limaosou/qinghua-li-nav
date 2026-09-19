@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NavHub 后台管理</title>
+<title>青花狸导航 · 后台管理</title>
+<link rel="icon" href="/brand-icon.png">
 <script>
 if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
   document.documentElement.classList.add('dark');
@@ -92,6 +93,10 @@ tailwind.config = {
       <button data-tab="sites" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
         <i data-lucide="link" class="w-4 h-4"></i>网址管理
       </button>
+      <button data-tab="subs" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
+        <i data-lucide="inbox" class="w-4 h-4"></i>投稿审核
+        <span id="subsBadge" class="hidden min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[11px] font-semibold flex items-center justify-center">0</span>
+      </button>
       <button data-tab="backup" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
         <i data-lucide="database-backup" class="w-4 h-4"></i>数据备份
       </button>
@@ -165,6 +170,29 @@ tailwind.config = {
           </tr></thead>
           <tbody id="siteTable"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ===== 投稿审核 ===== -->
+    <section id="tab-subs" class="tab-panel hidden space-y-4">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h2 class="text-sm font-semibold flex items-center gap-1.5"><i data-lucide="inbox" class="w-4 h-4 text-indigo-500"></i>访客投稿</h2>
+          <p class="text-xs text-slate-400 mt-1">选择目标分类后点「收录」，即可一键加入网址库（自动补抓站点图标）</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800">
+              <tr>
+                <th class="px-5 py-3 font-medium">站点信息</th>
+                <th class="px-3 py-3 font-medium hidden md:table-cell">联系方式</th>
+                <th class="px-3 py-3 font-medium">状态</th>
+                <th class="px-5 py-3 font-medium text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody id="subTable"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -321,6 +349,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
 
 /* ============ 数据 ============ */
 let CATS = [], SITES = [], editSiteId = null, editCatId = null;
+let settingsLoaded = false;
+let engineList = [];
+let navLinkList = [];
 
 async function loadAll() {
   const data = await api('/api/admin/data', null, 'GET');
@@ -559,6 +590,12 @@ const SUB_STATUS = {
 
 function renderSubs() {
   const tbody = $('subTable');
+  const pending = SUBS.filter(s => s.status === 'pending').length;
+  const badge = $('subsBadge');
+  if (badge) {
+    badge.textContent = pending;
+    badge.classList.toggle('hidden', !pending);
+  }
   if (!SUBS.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-10 text-center text-slate-400">暂无投稿</td></tr>';
     return;
@@ -633,18 +670,17 @@ $('exportBtn').addEventListener('click', async () => {
 });
 
 /* ============ 站点配置 ============ */
-let settingsLoaded = false;
-let engineList = [];
-
 const SET_FIELDS = ['site_name', 'site_title', 'site_subtitle', 'site_description', 'site_keywords',
-  'footer_text', 'icp', 'announcement', 'brand_icon', 'custom_head'];
+  'footer_text', 'icp', 'announcement', 'brand_icon', 'brand_image', 'custom_head'];
 
 async function loadSettings() {
   const s = await api('/api/admin/settings', null, 'GET');
   SET_FIELDS.forEach(k => { const el = $('set_' + k); if (el) el.value = s[k] ?? ''; });
   $('set_robots_txt').value = s.robots_txt ?? '';
   engineList = Array.isArray(s.engines) ? [...s.engines] : [];
+  navLinkList = Array.isArray(s.nav_links) ? [...s.nav_links] : [];
   renderEngineRows();
+  renderNavLinks();
   settingsLoaded = true;
 }
 
@@ -672,6 +708,34 @@ $('engineRows').addEventListener('click', async e => {
   if (!engineList[i]?.name && !confirm('删除该搜索引擎？')) return;
   engineList.splice(i, 1);
   renderEngineRows();
+});
+
+function renderNavLinks() {
+  const box = $('navLinkRows');
+  if (!navLinkList.length) {
+    box.innerHTML = '<p class="text-xs text-slate-400 py-1.5">暂无导航链接，点下方按钮添加</p>';
+    return;
+  }
+  box.innerHTML = navLinkList.map((l, i) => `
+    <div class="flex gap-2 items-center">
+      <input data-nav-label="${i}" value="${esc(l.label || '')}" placeholder="显示文字" class="w-32 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <input data-nav-url="${i}" value="${esc(l.url || '')}" placeholder="https://…" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+      <button data-nav-del="${i}" title="删除" class="w-8 h-8 rounded-lg text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center justify-center transition-colors cursor-pointer shrink-0">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </div>`).join('');
+  icons();
+}
+
+$('navLinkRows').addEventListener('click', e => {
+  const del = e.target.closest('[data-nav-del]');
+  if (del) { navLinkList.splice(+del.dataset.navDel, 1); renderNavLinks(); }
+});
+
+$('addNavLinkBtn').addEventListener('click', () => {
+  if (navLinkList.length >= 10) return toast('最多 10 个导航链接', false);
+  navLinkList.push({ label: '', url: '' });
+  renderNavLinks();
 });
 
 $('saveSettingsBtn').addEventListener('click', async () => {
