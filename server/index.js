@@ -33,6 +33,18 @@ app.get('/llms.txt', (req, res) => {
   res.send(renderLLMsTxt(req));
 });
 
+// sitemap.xml：单页导航站，列出首页
+app.get('/sitemap.xml', (req, res) => {
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const base = `${proto}://${host}`;
+  res.set('Content-Type', 'application/xml; charset=utf-8');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+</urlset>`);
+});
+
 // 静态资源（前台 + 后台页面）
 const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));

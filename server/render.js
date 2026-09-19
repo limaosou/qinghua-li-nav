@@ -71,22 +71,23 @@ function renderFragments(data) {
 let templateCache = null;
 
 function baseUrl(req) {
-  const proto = req.headers['x-forwarded-proto'] || 'http';
+  // 线上站点始终走 HTTPS（宝塔反代可能不回传 x-forwarded-proto，因此默认 https）
+  const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
   return `${proto}://${host}`;
 }
 
-function buildJSONLD(data, base) {
+function buildJSONLD(data, base, s) {
   const items = [];
   let pos = 0;
-  for (const c of data) for (const s of c.sites) {
+  for (const c of data) for (const s2 of c.sites) {
     if (pos >= 100) break; // 控制体积
-    items.push({ '@type': 'ListItem', position: ++pos, name: `${c.name} - ${s.title}`, url: s.url });
+    items.push({ '@type': 'ListItem', position: ++pos, name: `${c.name} - ${s2.title}`, url: s2.url });
   }
   return {
     '@context': 'https://schema.org',
     '@graph': [
-      { '@type': 'WebSite', name: 'NavHub 网址导航', url: base + '/', description: '分类收录常用网站、开发工具、影视娱乐与学习资源的网址导航。', inLanguage: 'zh-CN' },
+      { '@type': 'WebSite', name: `${s.site_name}导航`, alternateName: 'NavHub 网址导航', url: base + '/', description: s.site_description || '分类收录常用网站、开发工具、影视娱乐与学习资源的网址导航。', inLanguage: 'zh-CN' },
       { '@type': 'ItemList', name: '收录网站列表', numberOfItems: items.length, itemListElement: items },
     ],
   };
@@ -141,7 +142,8 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_KEYWORDS-->', esc(s.site_keywords))
     .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
     .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
-    .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base)).replace(/</g, '\\u003c')}</script>`)
+    .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base, s)).replace(/</g, '\\u003c')}</script>`)
+    .replaceAll('<!--SSR_OG_IMAGE-->', s.brand_image ? `<meta property="og:image" content="${esc(base + s.brand_image)}">` : '')
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)
     .replaceAll('<!--SSR_NAV_LINKS-->', navLinksHTML)
@@ -158,16 +160,19 @@ function renderNavPage(req) {
 /** 生成 llms.txt（面向 AI 搜索引擎的内容清单，GEO 优化） */
 function renderLLMsTxt(req) {
   const data = getNavData();
+  const s = settings.getSettings();
+  const total = data.reduce((a, c) => a + c.sites.length, 0);
   const lines = [
-    '# NavHub 网址导航',
+    `# ${s.site_name}导航`,
     '',
-    '> 简洁好用的中文网址导航站。分类收录常用网站、开发工具、影视娱乐与学习资源，支持多引擎搜索、站内实时搜索与深色模式。',
+    `> ${s.site_description || '简洁好用的中文网址导航站。分类收录常用网站、开发工具、影视娱乐与学习资源，支持多引擎搜索、站内实时搜索与深色模式。'}`,
+    `> 站点：${baseUrl(req)}/ · 收录 ${data.length} 个分类共 ${total} 个精选网址。`,
     '',
   ];
   for (const c of data) {
-    lines.push(`## ${c.name}`);
-    for (const s of c.sites) {
-      lines.push(`- [${s.title}](${s.url})${s.description ? `：${s.description}` : ''}`);
+    lines.push(`## ${c.icon || ''} ${c.name}`);
+    for (const s2 of c.sites) {
+      lines.push(`- [${s2.title}](${s2.url})${s2.description ? `：${s2.description}` : ''}`);
     }
     lines.push('');
   }
