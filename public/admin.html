@@ -345,10 +345,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
   if (btn.dataset.tab === 'settings' && !settingsLoaded) {
     loadSettings().catch(e => toast(e.message, false));
   }
+  if (btn.dataset.tab === 'subs') {
+    loadSubs().catch(e => toast(e.message, false));
+  }
 }));
 
 /* ============ 数据 ============ */
-let CATS = [], SITES = [], editSiteId = null, editCatId = null;
+let CATS = [], SITES = [], SUBS = [], editSiteId = null, editCatId = null;
 let settingsLoaded = false;
 let engineList = [];
 let navLinkList = [];
