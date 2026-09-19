@@ -68,24 +68,45 @@ npm start
 
 ## 方式一：宝塔面板（BT-Panel）
 
-1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/nav-system`（或 git clone）。
-2. **安装 PM2 管理器**：宝塔「软件商店」搜索安装 `PM2管理器`（自带 Node 环境）。
+1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/qinghua-nav`；或终端 git 拉取：
+   ```bash
+   cd /www/wwwroot
+   git clone git@github.com:<你的用户名>/qinghua-nav.git qinghua-nav
+   cd qinghua-nav
+   ```
+2. **安装 PM2 管理器**：宝塔「软件商店」搜索安装 `PM2管理器`（自带 Node 环境，建议 Node ≥ 18）。
 3. **安装依赖**：
    - 若用 Node 项目管理器：添加项目 → 启动文件选 `server/index.js`，运行目录为项目根，端口 `3000`，自动执行 `npm install`。
-   - 或终端方式：宝塔「终端」执行
+   - 或终端方式：
      ```bash
-     cd /www/wwwroot/nav-system
+     cd /www/wwwroot/qinghua-nav
      npm install --omit=dev
      ```
-4. **配置环境变量**：复制 `.env.example` 为 `.env`，修改 `TOKEN_SECRET` 与管理员密码（`npm run hash-password` 生成）。
-5. **PM2 启动**（终端）：
+4. **配置环境变量**：
    ```bash
-   cd /www/wwwroot/nav-system
+   cp .env.example .env
+   node scripts/hash-password.js   # 按提示输入管理员密码，把生成的哈希填入 .env
+   vim .env                        # 修改 ADMIN_USERNAME / ADMIN_PASSWORD_HASH / TOKEN_SECRET
+   ```
+   ⚠️ `TOKEN_SECRET` 必须换成随机长字符串（`openssl rand -hex 32`），否则 Token 可被伪造。
+5. **PM2 启动**：
+   ```bash
+   npm install -g pm2        # 若 PM2 管理器已带可跳过
    pm2 start ecosystem.config.js
    pm2 save && pm2 startup   # 开机自启
    ```
-6. **域名 + 反向代理**：宝塔「网站」→ 添加站点（纯静态即可）→ 设置 → 反向代理 → 目标 URL 填 `http://127.0.0.1:3000`。建议顺手申请 SSL 证书。
-7. **备份**：定时任务里加一条 shell，每日复制 `/www/wwwroot/nav-system/data` 到备份目录。
+6. **域名 + 反向代理**：宝塔「网站」→ 添加站点（纯静态即可）→ 设置 → 反向代理 → 目标 URL `http://127.0.0.1:3000`，并申请 SSL 证书。
+   **HTTPS 站点必须**在反向代理配置里加上（否则前台 canonical 链接会变成 http）：
+   ```nginx
+   proxy_set_header X-Forwarded-Proto $scheme;
+   proxy_set_header X-Forwarded-Host $host;
+   ```
+7. **首次验证**：访问 `https://你的域名` 看前台，`/admin` 登录后台（用第 4 步配置的账号），进「站点配置」改公告/导航链接等。
+8. **备份**：宝塔「计划任务」加一条每日 Shell：
+   ```bash
+   cp -r /www/wwwroot/qinghua-nav/data /www/backup/qinghua-nav-$(date +\%F)
+   ```
+   `data/` 里是 SQLite 数据库（含分类/网址/投稿/站点配置），拷走即全量备份。
 
 ## 方式二：PM2 裸机部署
 
