@@ -204,12 +204,13 @@ tailwind.config = {
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
         <!-- 固定最大高度的内滚动容器：翻页只滚表格区，页面上方（筛选栏）和下方（分页条）位置保持不变，避免整页抖动 -->
-        <div id="siteTableWrap" class="max-h-[62vh] overflow-y-auto">
-          <table class="w-full text-sm">
+        <!-- overflow-y-scroll 常驻滚动条：短页时不因滚动条消失而把表格拉宽 -->
+        <div id="siteTableWrap" class="max-h-[62vh] overflow-y-scroll">
+          <table class="w-full text-sm table-fixed">
             <thead class="sticky top-0 z-10"><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/95">
-              <th class="px-5 py-3 font-medium">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell">分类</th>
-              <th class="px-3 py-3 font-medium hidden lg:table-cell">URL</th><th class="px-3 py-3 font-medium">状态</th>
-              <th class="px-5 py-3 font-medium text-right">操作</th>
+              <th class="px-5 py-3 font-medium w-[36%]">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell w-[14%]">分类</th>
+              <th class="px-3 py-3 font-medium hidden lg:table-cell w-[28%]">URL</th><th class="px-3 py-3 font-medium w-[11%]">状态</th>
+              <th class="px-5 py-3 font-medium text-right w-[11%]">操作</th>
             </tr></thead>
             <tbody id="siteTable"></tbody>
           </table>
@@ -607,7 +608,7 @@ function renderSites() {
     const dot = chk ? `<span class="inline-block w-2 h-2 rounded-full shrink-0 ${chk.status === 'ok' ? 'bg-emerald-500' : chk.status === 'warn' ? 'bg-amber-500' : 'bg-rose-500'}" title="体检：${esc(chk.status === 'ok' ? '正常' : (chk.message || chk.status))}"></span>` : '';
     return `
     <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
-      <td class="px-5 py-2.5">
+      <td class="px-5 py-2.5 overflow-hidden">
         <div class="flex items-center gap-2.5">
           <span class="relative w-8 h-8 shrink-0">
             ${s.icon ? `<img src="${esc(s.icon)}" class="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-0.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
@@ -616,7 +617,7 @@ function renderSites() {
           <span class="font-medium flex items-center gap-1.5 min-w-0">${dot}<span class="truncate">${esc(s.title)}</span></span>
         </div>
       </td>
-      <td class="px-3 py-2.5 text-slate-500 hidden md:table-cell">${cat ? esc(cat.name) : '—'}</td>
+      <td class="px-3 py-2.5 text-slate-500 hidden md:table-cell truncate">${cat ? esc(cat.name) : '—'}</td>
       <td class="px-3 py-2.5 text-slate-400 text-xs hidden lg:table-cell max-w-[220px] truncate">${esc(s.url)}</td>
       <td class="px-3 py-2.5">
         <span class="inline-flex gap-1">
