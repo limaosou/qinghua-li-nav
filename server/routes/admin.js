@@ -197,6 +197,73 @@ router.post('/sites', (req, res) => {
   }
 });
 
+// ---------- 链接体检（失效链接检测） ----------
+// 后台异步任务：并发探测各站点可达性，前端轮询进度。结果存内存，进程重启即失效（属预期）。
+const linkJob = { running: false, stop: false, done: 0, total: 0, results: [], startedAt: null, finishedAt: null };
+
+const LINK_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 NavHub/1.0';
+
+/**
+ * 探测单个网址。分三档：
+ *   ok   —— 2xx/3xx
+ *   warn —— 401/403/405/406/429/503：站点活着但拒绝探测（多半是拦爬虫），不建议直接删
+ *   fail —— 4xx/5xx 其他、DNS 解析失败、超时、证书错误等
+ */
+async function probeSite(site) {
+  try {
+    const r = await fetch(site.url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
+      headers: { 'User-Agent': LINK_UA, Accept: 'text/html,application/xhtml+xml,*/*;q=0.8' },
+    });
+    if (r.ok) return { status: 'ok', code: r.status, message: '' };
+    if ([401, 403, 405, 406, 429, 503].includes(r.status))
+      return { status: 'warn', code: r.status, message: `HTTP ${r.status}，站点拒绝探测（可能拦爬虫，不一定是死链）` };
+    return { status: 'fail', code: r.status, message: `HTTP ${r.status}` };
+  } catch (e) {
+    if (e?.name === 'TimeoutError' || /abort|timeout/i.test(String(e?.message))) return { status: 'fail', code: 0, message: '连接超时' };
+    const code = e?.cause?.code || e?.code || e?.message || '未知错误';
+    return { status: 'fail', code: 0, message: String(code).slice(0, 80) };
+  }
+}
+
+router.post('/check-links/start', (req, res) => {
+  if (linkJob.running) return res.json({ code: 0, data: { started: false, message: '检测已在进行中', total: linkJob.total, done: linkJob.done } });
+  const categoryId = Number(req.body?.category_id) || null;
+  const sites = categoryId
+    ? db.prepare('SELECT id, title, url, category_id FROM sites WHERE category_id = ?').all(categoryId)
+    : db.prepare('SELECT id, title, url, category_id FROM sites').all();
+  if (!sites.length) return res.status(400).json({ code: 1, message: '没有可检测的网址' });
+
+  Object.assign(linkJob, { running: true, stop: false, done: 0, total: sites.length, results: [], startedAt: Date.now(), finishedAt: null });
+  const CONCURRENCY = 10;
+  (async () => {
+    let idx = 0;
+    const worker = async () => {
+      while (!linkJob.stop && idx < sites.length) {
+        const s = sites[idx++];
+        const r = await probeSite(s);
+        linkJob.results.push({ id: s.id, title: s.title, url: s.url, category_id: s.category_id, ...r });
+        linkJob.done++;
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, sites.length) }, worker));
+    linkJob.running = false;
+    linkJob.finishedAt = Date.now();
+    console.log(`[linkcheck] 完成 ${linkJob.done}/${linkJob.total}，耗时 ${Math.round((linkJob.finishedAt - linkJob.startedAt) / 1000)}s`);
+  })();
+  res.json({ code: 0, data: { started: true, total: sites.length } });
+});
+
+router.get('/check-links/status', (req, res) => {
+  res.json({ code: 0, data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results: linkJob.results } });
+});
+
+router.post('/check-links/stop', (req, res) => {
+  if (linkJob.running) linkJob.stop = true;
+  res.json({ code: 0 });
+});
+
 // ---------- 抓取网站图标 ----------
 router.post('/fetch-favicon', async (req, res) => {
   const raw = String(req.body?.url || '').trim();

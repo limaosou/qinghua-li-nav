@@ -161,6 +161,46 @@ tailwind.config = {
           <button id="resetSiteBtn" class="hidden px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">取消编辑</button>
         </div>
       </div>
+
+      <!-- 筛选栏 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm px-4 py-3 flex flex-wrap items-center gap-2">
+        <select id="siteFilterCat" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          <option value="">全部分类</option>
+        </select>
+        <div class="relative flex-1 min-w-[180px]">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input id="siteFilterKw" placeholder="搜标题 / 网址 / 标签 / 描述" class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+        </div>
+        <select id="siteFilterStatus" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition" title="体检后可按链接状态筛选">
+          <option value="">链接状态：全部</option>
+          <option value="fail">仅看失效</option>
+          <option value="warn">仅看可疑</option>
+          <option value="ok">仅看正常</option>
+        </select>
+        <span id="siteFilterCount" class="ml-auto text-xs text-slate-400 whitespace-nowrap"></span>
+      </div>
+
+      <!-- 链接体检 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="text-sm font-semibold flex items-center gap-1.5"><i data-lucide="stethoscope" class="w-4 h-4 text-indigo-500"></i>链接体检</h3>
+          <span id="lcStatus" class="text-xs text-slate-400">未检测过</span>
+          <span class="ml-auto flex items-center gap-2">
+            <button id="lcStartBtn" class="px-4 py-1.5 rounded-xl bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors cursor-pointer flex items-center gap-1.5"><i data-lucide="activity" class="w-3.5 h-3.5"></i>开始检测</button>
+            <button id="lcStopBtn" class="hidden px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">停止</button>
+            <button id="lcDelFailBtn" class="hidden px-4 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-medium hover:bg-rose-600 transition-colors cursor-pointer flex items-center gap-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i>删除全部失效</button>
+          </span>
+        </div>
+        <div id="lcProgressWrap" class="hidden mt-3">
+          <div class="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden">
+            <div id="lcBar" class="h-full bg-indigo-500 rounded-full transition-all duration-300" style="width:0%"></div>
+          </div>
+          <p id="lcProgressText" class="text-xs text-slate-400 mt-1.5"></p>
+        </div>
+        <div id="lcSummary" class="hidden mt-3 flex flex-wrap gap-2 text-xs"></div>
+        <div id="lcTable" class="mt-1"></div>
+      </div>
+
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
         <table class="w-full text-sm">
           <thead><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50/60 dark:bg-gray-800/40">
@@ -348,6 +388,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
   if (btn.dataset.tab === 'subs') {
     loadSubs().catch(e => toast(e.message, false));
   }
+  if (btn.dataset.tab === 'sites') {
+    resumeLinkCheck();
+  }
 }));
 
 /* ============ 数据 ============ */
@@ -363,6 +406,7 @@ async function loadAll() {
   renderCats();
   renderSites();
   renderCatSelect();
+  renderSiteFilterCats();
 }
 
 function enterPanel() {
@@ -450,10 +494,44 @@ function resetSiteForm() {
   icons();
 }
 
+/* ============ 网址筛选 ============ */
+let CHECK = new Map(); // siteId -> {status:'ok'|'warn'|'fail', code, message}（体检结果）
+
+function renderSiteFilterCats() {
+  const sel = $('siteFilterCat');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部分类</option>' +
+    CATS.map(c => `<option value="${c.id}">${c.icon || ''} ${esc(c.name)}（${SITES.filter(s => s.category_id === c.id).length}）</option>`).join('');
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : '';
+}
+
+function filteredSites() {
+  const cat = +$('siteFilterCat').value || 0;
+  const kw = $('siteFilterKw').value.trim().toLowerCase();
+  const st = $('siteFilterStatus').value;
+  return SITES.filter(s => {
+    if (cat && s.category_id !== cat) return false;
+    if (kw) {
+      const hay = `${s.title || ''} ${s.url || ''} ${s.tags || ''} ${s.description || ''}`.toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    if (st && CHECK.get(s.id)?.status !== st) return false; // 未体检过的站点不参与状态筛选
+    return true;
+  });
+}
+
+$('siteFilterCat').addEventListener('change', renderSites);
+$('siteFilterStatus').addEventListener('change', renderSites);
+$('siteFilterKw').addEventListener('input', renderSites);
+
 function renderSites() {
   const tbody = $('siteTable');
-  tbody.innerHTML = SITES.map(s => {
+  const list = filteredSites();
+  $('siteFilterCount').textContent = `显示 ${list.length} / 共 ${SITES.length} 条`;
+  tbody.innerHTML = list.map(s => {
     const cat = CATS.find(c => c.id === s.category_id);
+    const chk = CHECK.get(s.id);
+    const dot = chk ? `<span class="inline-block w-2 h-2 rounded-full shrink-0 ${chk.status === 'ok' ? 'bg-emerald-500' : chk.status === 'warn' ? 'bg-amber-500' : 'bg-rose-500'}" title="体检：${esc(chk.status === 'ok' ? '正常' : (chk.message || chk.status))}"></span>` : '';
     return `
     <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
       <td class="px-5 py-2.5">
@@ -462,7 +540,7 @@ function renderSites() {
             ${s.icon ? `<img src="${esc(s.icon)}" class="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-0.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
             <span class="w-8 h-8 rounded-lg items-center justify-center text-xs font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
           </span>
-          <span class="font-medium">${esc(s.title)}</span>
+          <span class="font-medium flex items-center gap-1.5 min-w-0">${dot}<span class="truncate">${esc(s.title)}</span></span>
         </div>
       </td>
       <td class="px-3 py-2.5 text-slate-500 hidden md:table-cell">${cat ? esc(cat.name) : '—'}</td>
@@ -583,6 +661,154 @@ $('siteTable').addEventListener('click', async e => {
     }
   } catch (err) { toast(err.message, false); }
 });
+
+/* ============ 链接体检 ============ */
+let lcTimer = null;
+let lcResults = [];
+
+const LC_BADGE = {
+  ok:   '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">正常</span>',
+  warn: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">可疑</span>',
+  fail: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400">失效</span>',
+};
+const LC_ORDER = { fail: 0, warn: 1, ok: 2 };
+
+async function startLinkCheck() {
+  try {
+    const catId = $('siteFilterCat').value || null;
+    await api('/api/admin/check-links/start', catId ? { category_id: +catId } : {});
+    lcResults = [];
+    $('lcStartBtn').classList.add('hidden');
+    $('lcStopBtn').classList.remove('hidden');
+    $('lcProgressWrap').classList.remove('hidden');
+    $('lcBar').style.width = '0%';
+    pollLinkCheck();
+  } catch (e) { toast(e.message, false); }
+}
+
+async function pollLinkCheck() {
+  clearTimeout(lcTimer);
+  let st;
+  try { st = await api('/api/admin/check-links/status', null, 'GET'); }
+  catch { return; }
+  lcResults = st.results || [];
+  CHECK.clear();
+  lcResults.forEach(r => CHECK.set(r.id, r));
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  $('lcBar').style.width = pct + '%';
+  $('lcProgressText').textContent = `已检测 ${st.done} / ${st.total}`;
+  $('lcStatus').textContent = st.running
+    ? `检测中 ${st.done}/${st.total}…`
+    : `上次检测 ${st.done} 条 · ${st.finishedAt ? new Date(st.finishedAt).toLocaleTimeString() : ''}`;
+  renderLcTable();
+  renderSites();
+  if (st.running) { lcTimer = setTimeout(pollLinkCheck, 1200); return; }
+  $('lcStopBtn').classList.add('hidden');
+  $('lcStartBtn').classList.remove('hidden');
+  $('lcProgressWrap').classList.add('hidden');
+  const bad = lcResults.filter(r => r.status !== 'ok').length;
+  toast(bad ? `体检完成：${bad} 条异常` : '体检完成：全部正常');
+}
+
+function renderLcTable() {
+  const cnt = { ok: 0, warn: 0, fail: 0 };
+  lcResults.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
+  const sum = $('lcSummary');
+  if (lcResults.length) {
+    sum.classList.remove('hidden', 'flex');
+    sum.classList.add('flex');
+    sum.innerHTML = `
+      <span class="px-2 py-0.5 rounded-md font-medium bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400">失效 ${cnt.fail}</span>
+      <span class="px-2 py-0.5 rounded-md font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">可疑 ${cnt.warn}</span>
+      <span class="px-2 py-0.5 rounded-md font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">正常 ${cnt.ok}</span>
+      <span class="text-slate-400 self-center">可疑=站点拒绝探测（可能拦爬虫），建议浏览器确认后再处理</span>`;
+    $('lcDelFailBtn').classList.toggle('hidden', cnt.fail === 0);
+  } else { sum.classList.add('hidden'); }
+
+  const el = $('lcTable');
+  if (!lcResults.length) { el.innerHTML = ''; return; }
+  const problems = [...lcResults]
+    .filter(r => r.status !== 'ok')
+    .sort((a, b) => (LC_ORDER[a.status] - LC_ORDER[b.status]) || a.id - b.id);
+  if (!problems.length) {
+    el.innerHTML = `<p class="text-sm text-emerald-600 dark:text-emerald-400 py-2 flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4"></i>全部 ${cnt.ok} 条链接正常</p>`;
+    icons(); return;
+  }
+  el.innerHTML = `<div class="mt-2 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden max-h-96 overflow-y-auto"><table class="w-full text-sm">` +
+    problems.map(r => {
+      const cat = CATS.find(c => c.id === r.category_id);
+      return `<tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
+        <td class="px-4 py-2.5">
+          <div class="flex items-center gap-2"><span class="font-medium">${esc(r.title)}</span>${LC_BADGE[r.status] || ''}</div>
+          <div class="text-xs text-slate-400 mt-0.5 max-w-[300px] truncate">${esc(r.url)}</div>
+        </td>
+        <td class="px-3 py-2.5 hidden md:table-cell text-slate-500">${cat ? esc(cat.name) : '—'}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-400 max-w-[200px] truncate" title="${esc(r.message || '')}">${esc(r.message || `HTTP ${r.code}`)}</td>
+        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+          <button data-lc-del="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除该网址"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </td>
+      </tr>`;
+    }).join('') + `</table></div>`;
+  icons();
+}
+
+$('lcStartBtn').addEventListener('click', startLinkCheck);
+$('lcStopBtn').addEventListener('click', async () => {
+  try { await api('/api/admin/check-links/stop', {}); } catch { /* ignore */ }
+  toast('正在停止…');
+});
+$('lcDelFailBtn').addEventListener('click', async () => {
+  const fails = lcResults.filter(r => r.status === 'fail');
+  if (!fails.length) return;
+  if (!confirm(`将永久删除 ${fails.length} 条失效网址，不可恢复，确定？`)) return;
+  let ok = 0;
+  for (const r of fails) {
+    try {
+      await api('/api/admin/sites', { action: 'delete', id: r.id });
+      ok++; CHECK.delete(r.id);
+    } catch (e) { toast(`${r.title}: ${e.message}`, false); }
+  }
+  lcResults = lcResults.filter(r => !fails.find(f => f.id === r.id));
+  renderLcTable(); renderSites();
+  toast(`已删除 ${ok} 条失效网址`);
+  await loadAll();
+});
+$('lcTable').addEventListener('click', async e => {
+  const del = e.target.closest('[data-lc-del]');
+  if (!del) return;
+  const r = lcResults.find(x => x.id === +del.dataset.lcDel);
+  if (!r) return;
+  if (!confirm(`删除网址「${r.title}」（${r.url}）？`)) return;
+  try {
+    await api('/api/admin/sites', { action: 'delete', id: r.id });
+    lcResults = lcResults.filter(x => x.id !== r.id);
+    CHECK.delete(r.id);
+    renderLcTable(); renderSites();
+    toast('已删除');
+    await loadAll();
+  } catch (err) { toast(err.message, false); }
+});
+// 进入网址管理 tab 时：恢复上次的体检结果（服务端内存里还有的话），进行中的任务续上进度轮询
+async function resumeLinkCheck() {
+  try {
+    const st = await api('/api/admin/check-links/status', null, 'GET');
+    if (!st.results || !st.results.length) return;
+    lcResults = st.results;
+    CHECK.clear();
+    lcResults.forEach(r => CHECK.set(r.id, r));
+    $('lcStatus').textContent = st.running
+      ? `检测中 ${st.done}/${st.total}…`
+      : `上次检测 ${st.total} 条 · ${st.finishedAt ? new Date(st.finishedAt).toLocaleTimeString() : ''}`;
+    renderLcTable();
+    renderSites();
+    if (st.running) {
+      $('lcStartBtn').classList.add('hidden');
+      $('lcStopBtn').classList.remove('hidden');
+      $('lcProgressWrap').classList.remove('hidden');
+      pollLinkCheck();
+    }
+  } catch { /* ignore */ }
+}
 
 /* ============ 投稿审核 ============ */
 const SUB_STATUS = {
