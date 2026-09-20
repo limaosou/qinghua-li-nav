@@ -203,28 +203,117 @@ const linkJob = { running: false, stop: false, done: 0, total: 0, results: [], s
 
 const LINK_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 NavHub/1.0';
 
+// ---------- 白名单：人工确认「这条不是死链」后，体检不再把它算进失效 ----------
+const WL_KEY = 'link_ok_urls';
+const wlGet = db.prepare('SELECT value FROM settings WHERE key = ?');
+const wlSet = db.prepare(
+  "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+);
+function getWhitelist() {
+  try {
+    const v = JSON.parse(wlGet.get(WL_KEY)?.value || '[]');
+    return Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function saveWhitelist(arr) {
+  wlSet.run(WL_KEY, JSON.stringify([...new Set(arr)].slice(0, 500)));
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// 真实错误码形如 UNABLE_TO_GET_ISSUER_CERT_LOCALLY / ERR_TLS_CERT_ALTNAME_INVALID / DEPTH_ZERO_SELF_SIGNED_CERT，
+// 而 e.message 往往只是 "fetch failed"，所以要把 cause.message 也纳入判断
+const CERT_HINT = /cert|ssl|tls|altname|unable_to_verify|self[_ ]?signed|depth_zero|expired/i;
+
+/** 单次探测，返回归一化结果（不重试） */
+async function attempt(url, timeoutMs) {
+  try {
+    const r = await fetch(url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        'User-Agent': LINK_UA,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+    });
+    return { kind: 'resp', code: r.status };
+  } catch (e) {
+    const code = String(e?.cause?.code || e?.code || '').toUpperCase();
+    const msg = String(e?.message || e || '未知错误');
+    const causeMsg = String(e?.cause?.message || '');
+    let kind = 'net';
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') kind = 'dns';
+    else if (['ETIMEDOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(code) || /timeout|abort/i.test(msg)) kind = 'timeout';
+    else if (/header/i.test(msg) || /HPE_/i.test(code)) kind = 'header';
+    else if (CERT_HINT.test(msg) || CERT_HINT.test(code) || CERT_HINT.test(causeMsg)) kind = 'cert';
+    else if (code === 'ECONNREFUSED') kind = 'refused';
+    else if (['ECONNRESET', 'EPIPE', 'UND_ERR_SOCKET', 'ERR_SOCKET_CLOSED'].includes(code)) kind = 'reset';
+    return { kind, code, message: msg.slice(0, 90) };
+  }
+}
+
+/** 把单次探测结果翻译成三档结论 */
+function classify(a) {
+  if (a.kind === 'resp') {
+    if (a.code < 400) return { status: 'ok', code: a.code, message: '' };
+    if ([401, 403, 405, 406, 429, 503].includes(a.code))
+      return { status: 'warn', code: a.code, message: `HTTP ${a.code}，站点拒绝探测（可能拦爬虫，不一定是死链）` };
+    if (a.code >= 500 || [520, 521, 522, 525, 526, 527, 530].includes(a.code))
+      return { status: 'fail', code: a.code, message: `HTTP ${a.code}（服务端错误，将重试）` };
+    return { status: 'fail', code: a.code, message: `HTTP ${a.code}` };
+  }
+  switch (a.kind) {
+    case 'cert': {
+      // 证书链不全 / 域名不匹配 / 已过期：浏览器大多能自动补全或放行，站点通常仍可访问，不判死
+      const c = String(a.code || '');
+      const why = /ALTNAME/i.test(c) ? '证书与域名不匹配（可能只是 www/裸域差异或 CDN 配置问题）'
+        : /EXPIRED/i.test(c) ? '证书已过期'
+        : /SELF[_ ]?SIGNED|DEPTH_ZERO/i.test(c) ? '自签名证书'
+        : '证书链不完整（站点未下发中间证书）';
+      return { status: 'warn', code: 0, message: `${why}${c ? `（${c}）` : ''}：浏览器一般仍能打开，建议保留` };
+    }
+    case 'header':
+      return { status: 'warn', code: 0, message: '响应头异常（站点限流或协议兼容问题），未必是死链' };
+    case 'timeout':
+      return { status: 'fail', code: 0, message: '连接超时' };
+    case 'dns':
+      return { status: 'fail', code: 0, message: a.code === 'EAI_AGAIN' ? '域名解析暂时失败' : '域名解析失败（域名不存在）' };
+    case 'refused':
+      return { status: 'fail', code: 0, message: '连接被拒绝' };
+    case 'reset':
+      return { status: 'fail', code: 0, message: '连接被重置（将重试）' };
+    default:
+      return { status: 'fail', code: 0, message: a.message || (a.code || '未知错误') };
+  }
+}
+
 /**
  * 探测单个网址。分三档：
  *   ok   —— 2xx/3xx
- *   warn —— 401/403/405/406/429/503：站点活着但拒绝探测（多半是拦爬虫），不建议直接删
- *   fail —— 4xx/5xx 其他、DNS 解析失败、超时、证书错误等
+ *   warn —— 拒绝探测(401/403/429/503)、证书问题、响应头异常：站点多半活着，不建议删
+ *   fail —— 4xx、5xx(重试后)、DNS 失败、超时、连接拒绝
+ * 5xx / 超时 / 连接重置会换更长的超时重试一次，避免瞬时抖动被误杀。
  */
-async function probeSite(site) {
-  try {
-    const r = await fetch(site.url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000),
-      headers: { 'User-Agent': LINK_UA, Accept: 'text/html,application/xhtml+xml,*/*;q=0.8' },
-    });
-    if (r.ok) return { status: 'ok', code: r.status, message: '' };
-    if ([401, 403, 405, 406, 429, 503].includes(r.status))
-      return { status: 'warn', code: r.status, message: `HTTP ${r.status}，站点拒绝探测（可能拦爬虫，不一定是死链）` };
-    return { status: 'fail', code: r.status, message: `HTTP ${r.status}` };
-  } catch (e) {
-    if (e?.name === 'TimeoutError' || /abort|timeout/i.test(String(e?.message))) return { status: 'fail', code: 0, message: '连接超时' };
-    const code = e?.cause?.code || e?.code || e?.message || '未知错误';
-    return { status: 'fail', code: 0, message: String(code).slice(0, 80) };
+async function probeSite(site, whitelist = []) {
+  const a = await attempt(site.url, 8000);
+  let r = classify(a);
+  // 服务端错误、超时、连接重置 → 重试一次（DNS 失败不重试，重试也没用）；4xx 属明确响应，不重试
+  const retryable = (a.kind === 'resp' && r.status === 'fail' && (a.code >= 500 || [520, 521, 522, 525, 526, 527, 530].includes(a.code)))
+    || ['timeout', 'reset', 'net'].includes(a.kind);
+  if (retryable) {
+    await sleep(700);
+    const b = await attempt(site.url, 15000);
+    r = classify(b);
+    if (r.status === 'fail' && a.kind === 'resp') r.message = `HTTP ${a.code}（已重试一次仍失败）`;
+    else if (r.status === 'fail' && a.kind === 'timeout') r.message = '连接超时（已重试一次，15s）';
   }
+  // 白名单：人工确认过正常的站点，即使探测失败也只算「可疑」，不进失效名单
+  if (r.status === 'fail' && whitelist.includes(site.url)) {
+    return { status: 'warn', code: r.code, message: `已标记正常（白名单），本次探测：${r.message}`, whitelisted: true };
+  }
+  return { ...r, whitelisted: whitelist.includes(site.url) };
 }
 
 router.post('/check-links/start', (req, res) => {
@@ -235,14 +324,15 @@ router.post('/check-links/start', (req, res) => {
     : db.prepare('SELECT id, title, url, category_id FROM sites').all();
   if (!sites.length) return res.status(400).json({ code: 1, message: '没有可检测的网址' });
 
-  Object.assign(linkJob, { running: true, stop: false, done: 0, total: sites.length, results: [], startedAt: Date.now(), finishedAt: null });
+  const whitelist = getWhitelist();
+  Object.assign(linkJob, { running: true, stop: false, done: 0, total: sites.length, results: [], startedAt: Date.now(), finishedAt: null, whitelist });
   const CONCURRENCY = 10;
   (async () => {
     let idx = 0;
     const worker = async () => {
       while (!linkJob.stop && idx < sites.length) {
         const s = sites[idx++];
-        const r = await probeSite(s);
+        const r = await probeSite(s, whitelist);
         linkJob.results.push({ id: s.id, title: s.title, url: s.url, category_id: s.category_id, ...r });
         linkJob.done++;
       }
@@ -256,7 +346,32 @@ router.post('/check-links/start', (req, res) => {
 });
 
 router.get('/check-links/status', (req, res) => {
-  res.json({ code: 0, data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results: linkJob.results } });
+  res.json({
+    code: 0,
+    data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results: linkJob.results, whitelist: linkJob.whitelist || getWhitelist() },
+  });
+});
+
+/** 白名单维护：人工确认某条链接正常后，体检不再把它算作失效 */
+router.post('/check-links/whitelist', (req, res) => {
+  const { action, url } = req.body || {};
+  const list = getWhitelist();
+  if (action === 'add') {
+    if (!url) return res.status(400).json({ code: 1, message: '缺少 url' });
+    if (!list.includes(url)) list.push(url);
+    saveWhitelist(list);
+  } else if (action === 'remove') {
+    saveWhitelist(list.filter(u => u !== url));
+  } else if (action === 'clear') {
+    saveWhitelist([]);
+  } else {
+    return res.status(400).json({ code: 1, message: '未知操作' });
+  }
+  const next = getWhitelist();
+  linkJob.whitelist = next;
+  // 已出结果里同步刷新白名单状态
+  for (const r of linkJob.results) r.whitelisted = next.includes(r.url);
+  return res.json({ code: 0, data: { whitelist: next } });
 });
 
 router.post('/check-links/stop', (req, res) => {

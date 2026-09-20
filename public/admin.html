@@ -210,6 +210,7 @@ tailwind.config = {
           </tr></thead>
           <tbody id="siteTable"></tbody>
         </table>
+        <div id="sitePager" class="flex flex-wrap items-center gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-800 text-xs text-slate-500 dark:text-slate-400"></div>
       </div>
     </section>
 
@@ -304,7 +305,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500'];
 const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
-const icons = () => lucide.createIcons();
+// 图标库走 CDN，万一加载失败不能把整个页面渲染拖垮（曾经因 lucide 未定义导致后台空白）
+const icons = () => { try { window.lucide?.createIcons?.(); } catch { /* 图标缺失不影响功能 */ } };
 
 let toastTimer;
 function toast(msg, ok = true) {
@@ -520,15 +522,82 @@ function filteredSites() {
   });
 }
 
-$('siteFilterCat').addEventListener('change', renderSites);
-$('siteFilterStatus').addEventListener('change', renderSites);
-$('siteFilterKw').addEventListener('input', renderSites);
+// ---------- 网址表格分页 ----------
+// 网址数量多时一页铺开很难找，这里做客户端分页（筛选后仍只渲染当前页）
+let SITE_PAGE = 1;
+const SITE_PAGE_SIZES = [20, 50, 100, 0]; // 0 = 不分页，全部显示
+function sitePageSize() {
+  const raw = localStorage.getItem('navAdminSitePageSize');   // 注意 Number(null)===0，会被误判成「全部」
+  if (raw === null || raw === '') return 20;
+  const v = Number(raw);
+  return SITE_PAGE_SIZES.includes(v) ? v : 20;
+}
+const gotoSitePage = p => { SITE_PAGE = p; renderSites(); };
+
+$('siteFilterCat').addEventListener('change', () => gotoSitePage(1));
+$('siteFilterStatus').addEventListener('change', () => gotoSitePage(1));
+$('siteFilterKw').addEventListener('input', () => gotoSitePage(1));
+
+function pageNumbers(cur, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const arr = [...new Set([1, total, cur - 1, cur, cur + 1])].filter(n => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out = [];
+  arr.forEach((n, i) => { if (i && n - arr[i - 1] > 1) out.push('…'); out.push(n); });
+  return out;
+}
+
+function renderSitePager(count, totalPages, size, shown, from) {
+  const el = $('sitePager');
+  const sizeSel = `<select id="sitePageSize" class="px-2 py-1 rounded-lg bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs outline-none cursor-pointer">
+    ${SITE_PAGE_SIZES.map(n => `<option value="${n}" ${size === n ? 'selected' : ''}>${n ? n + ' 条' : '全部'}</option>`).join('')}
+  </select>`;
+  if (!count) {
+    el.innerHTML = `<span class="text-slate-400">没有符合条件的网址</span><span class="ml-auto flex items-center gap-1.5">每页 ${sizeSel}</span>`;
+    return;
+  }
+  const btn = (p, label, active, dis) =>
+    `<button data-site-page="${p}" ${dis ? 'disabled' : ''} class="min-w-[28px] px-2 py-1 rounded-lg border text-xs transition-colors ${active ? 'bg-indigo-500 text-white border-indigo-500' : 'border-gray-200 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-800 cursor-pointer'} ${dis ? 'opacity-40 cursor-not-allowed' : ''}">${label}</button>`;
+  const nums = size
+    ? pageNumbers(SITE_PAGE, totalPages).map(n => (n === '…' ? `<span class="px-1 text-slate-400">…</span>` : btn(n, n, n === SITE_PAGE, false))).join('')
+    : '';
+  el.innerHTML = `
+    <span class="flex items-center gap-1.5">每页 ${sizeSel}</span>
+    ${size ? `<span class="flex items-center gap-1">
+      ${btn(SITE_PAGE - 1, '‹', false, SITE_PAGE <= 1)}
+      ${nums}
+      ${btn(SITE_PAGE + 1, '›', false, SITE_PAGE >= totalPages)}
+    </span>` : '<span class="text-slate-400">未分页</span>'}
+    <span class="ml-auto">${size ? `第 ${from}-${from + shown - 1} 条 / 筛选 ${count} 条` : `全部 ${count} 条`}（共 ${SITES.length} 条）</span>`;
+}
+
+$('sitePager').addEventListener('click', e => {
+  const b = e.target.closest('[data-site-page]');
+  if (!b || b.disabled) return;
+  const size = sitePageSize();
+  const list = filteredSites();
+  const total = size ? Math.max(1, Math.ceil(list.length / size)) : 1;
+  const p = Math.min(Math.max(1, +b.dataset.sitePage), total);
+  if (p !== SITE_PAGE) gotoSitePage(p);
+});
+$('sitePager').addEventListener('change', e => {
+  if (e.target.id !== 'sitePageSize') return;
+  localStorage.setItem('navAdminSitePageSize', e.target.value);
+  gotoSitePage(1);
+});
 
 function renderSites() {
   const tbody = $('siteTable');
   const list = filteredSites();
-  $('siteFilterCount').textContent = `显示 ${list.length} / 共 ${SITES.length} 条`;
-  tbody.innerHTML = list.map(s => {
+  const size = sitePageSize();
+  const totalPages = size ? Math.max(1, Math.ceil(list.length / size)) : 1;
+  if (SITE_PAGE > totalPages) SITE_PAGE = totalPages;
+  if (SITE_PAGE < 1) SITE_PAGE = 1;
+  const from = size ? (SITE_PAGE - 1) * size : 0;
+  const page = size ? list.slice(from, from + size) : list;
+  $('siteFilterCount').textContent = page.length
+    ? `显示 ${from + 1}-${from + page.length} / 筛选 ${list.length} / 共 ${SITES.length} 条`
+    : `无匹配（共 ${SITES.length} 条）`;
+  tbody.innerHTML = page.map(s => {
     const cat = CATS.find(c => c.id === s.category_id);
     const chk = CHECK.get(s.id);
     const dot = chk ? `<span class="inline-block w-2 h-2 rounded-full shrink-0 ${chk.status === 'ok' ? 'bg-emerald-500' : chk.status === 'warn' ? 'bg-amber-500' : 'bg-rose-500'}" title="体检：${esc(chk.status === 'ok' ? '正常' : (chk.message || chk.status))}"></span>` : '';
@@ -560,6 +629,7 @@ function renderSites() {
       </td>
     </tr>`;
   }).join('');
+  renderSitePager(list.length, totalPages, size, page.length, page.length ? from + 1 : 0);
   icons();
 }
 
@@ -739,12 +809,17 @@ function renderLcTable() {
       const cat = CATS.find(c => c.id === r.category_id);
       return `<tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0 hover:bg-slate-50/60 dark:hover:bg-gray-800/40 transition-colors">
         <td class="px-4 py-2.5">
-          <div class="flex items-center gap-2"><span class="font-medium">${esc(r.title)}</span>${LC_BADGE[r.status] || ''}</div>
+          <div class="flex items-center gap-2"><span class="font-medium">${esc(r.title)}</span>${LC_BADGE[r.status] || ''}${
+            r.whitelisted ? `<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">已标记正常</span>` : ''
+          }</div>
           <div class="text-xs text-slate-400 mt-0.5 max-w-[300px] truncate">${esc(r.url)}</div>
         </td>
         <td class="px-3 py-2.5 hidden md:table-cell text-slate-500">${cat ? esc(cat.name) : '—'}</td>
         <td class="px-3 py-2.5 text-xs text-slate-400 max-w-[200px] truncate" title="${esc(r.message || '')}">${esc(r.message || `HTTP ${r.code}`)}</td>
         <td class="px-4 py-2.5 text-right whitespace-nowrap">
+          ${r.whitelisted
+            ? `<button data-lc-unwl="${r.id}" class="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="取消「标记正常」（重新纳入失效判定）"><i data-lucide="bookmark-minus" class="w-3.5 h-3.5"></i></button>`
+            : `<button data-lc-ok="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="这条其实能打开：标记正常，以后体检不再算失效"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i></button>`}
           <button data-lc-del="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除该网址"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </td>
       </tr>`;
@@ -773,7 +848,26 @@ $('lcDelFailBtn').addEventListener('click', async () => {
   toast(`已删除 ${ok} 条失效网址`);
   await loadAll();
 });
+// 白名单：人工确认某条链接其实能打开 → 标记正常，后续体检不再算失效（"删除全部失效" 也不会误删）
+async function markLinkOk(id, add) {
+  const r = lcResults.find(x => x.id === +id);
+  if (!r) return;
+  try {
+    await api('/api/admin/check-links/whitelist', { action: add ? 'add' : 'remove', url: r.url });
+    r.whitelisted = add;
+    if (add && r.status === 'fail') { r.status = 'warn'; r.message = `已标记正常（白名单），本次探测：${r.message}`; }
+    else if (!add && /已标记正常/.test(r.message || '')) r.status = 'fail';
+    CHECK.set(r.id, r);
+    renderLcTable(); renderSites();
+    toast(add ? '已标记正常，后续不再算失效' : '已取消标记');
+  } catch (e) { toast(e.message, false); }
+}
+
 $('lcTable').addEventListener('click', async e => {
+  const okBtn = e.target.closest('[data-lc-ok]');
+  if (okBtn) return markLinkOk(okBtn.dataset.lcOk, true);
+  const unwl = e.target.closest('[data-lc-unwl]');
+  if (unwl) return markLinkOk(unwl.dataset.lcUnwl, false);
   const del = e.target.closest('[data-lc-del]');
   if (!del) return;
   const r = lcResults.find(x => x.id === +del.dataset.lcDel);
