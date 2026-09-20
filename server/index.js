@@ -15,6 +15,9 @@ const { renderNavPage, renderLLMsTxt } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
+// 只信任本地反向代理（宝塔 Nginx）传来的 X-Forwarded-For，让 req.ip 拿到真实客户端 IP；
+// 外部直连伪造 XFF 无效，从而保障登录限流与日志按真实来源统计
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '2mb' }));
 
 // 首页 SSR：内容直接输出进 HTML，利于 SEO 与 AI 搜索抓取

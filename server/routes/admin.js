@@ -15,36 +15,70 @@ const { verifyPassword, signToken, requireAuth } = require('../auth');
 
 const router = express.Router();
 
-// ---------- 登录（带简单防暴力：10 分钟内最多 5 次失败） ----------
-const attempts = new Map();
+// ---------- 登录防暴力 ----------
+// 双层限额：单来源 10 分钟 5 次失败 + 全局 10 分钟 25 次失败（挡代理池分布式爆破）。
+// 关键设计：限额只拦「密码错误的请求」，密码正确一律放行（管理员自救），
+//   否则攻击者刷几十次错误即可把管理员本人锁在门外——那才是真正的拒绝服务。
+const attempts = new Map(); // IP -> { count, first }
+const globalGuard = { count: 0, first: 0 };
+const WINDOW = 10 * 60 * 1000;
+const IP_MAX = 5;
+const GLOBAL_MAX = 25;
+
+/** 校验管理员凭据 */
+function checkCreds(username, password) {
+  if (username !== (process.env.ADMIN_USERNAME || 'admin')) return false;
+  if (process.env.ADMIN_PASSWORD_HASH) return verifyPassword(password, process.env.ADMIN_PASSWORD_HASH);
+  if (process.env.ADMIN_PASSWORD) return password === process.env.ADMIN_PASSWORD;
+  return password === 'admin123'; // ⚠️ 未配置密码时的初始口令，上线前务必修改
+}
 
 router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
   const key = req.ip || 'unknown';
   const now = Date.now();
-  const rec = attempts.get(key) || { count: 0, first: now };
-  if (rec.count >= 5 && now - rec.first < 10 * 60 * 1000) {
-    return res.status(429).json({ code: 1, message: '失败次数过多，请 10 分钟后再试' });
+
+  // 超出时间窗口则重置计数（顺带回收过期 IP，避免 Map 无限增长）
+  if (attempts.size > 200) {
+    for (const [k, v] of attempts) if (now - v.first >= WINDOW) attempts.delete(k);
+  }
+  const prev = attempts.get(key);
+  const rec = prev && now - prev.first < WINDOW ? prev : { count: 0, first: now };
+  if (globalGuard.first && now - globalGuard.first >= WINDOW) {
+    globalGuard.count = 0;
+    globalGuard.first = 0;
   }
 
-  const okUser = username === (process.env.ADMIN_USERNAME || 'admin');
-  let okPass = false;
-  if (process.env.ADMIN_PASSWORD_HASH) {
-    okPass = verifyPassword(password, process.env.ADMIN_PASSWORD_HASH);
-  } else if (process.env.ADMIN_PASSWORD) {
-    okPass = password === process.env.ADMIN_PASSWORD;
-  } else {
-    okPass = password === 'admin123'; // ⚠️ 未配置密码时的默认口令，仅用于首次登录
-  }
-
-  if (okUser && okPass) {
+  const deny = msg => {
+    console.warn(`[auth] 拒绝登录 ip=${key} user=${username} 原因=${msg}`);
+    res.status(429).json({ code: 1, message: msg });
+  };
+  const grant = () => {
     attempts.delete(key);
-    return res.json({ code: 0, data: { token: signToken(username) } });
+    globalGuard.count = 0;
+    globalGuard.first = 0;
+    console.log(`[auth] 登录成功 ip=${key} user=${username}`);
+    res.json({ code: 0, data: { token: signToken(username) } });
+  };
+
+  const ipLocked = rec.count >= IP_MAX;
+  const globalLocked = globalGuard.count >= GLOBAL_MAX;
+
+  // 已触发限额时：密码正确即放行（解锁），错误才拒绝
+  if (ipLocked || globalLocked) {
+    if (checkCreds(username, password)) return grant();
+    return deny(ipLocked
+      ? `该网络登录失败过多，请 ${Math.ceil(WINDOW / 60000)} 分钟后再试（密码正确可立即解锁）`
+      : '检测到大量异常登录尝试，已临时锁定（密码正确可立即解锁）');
   }
+
+  if (checkCreds(username, password)) return grant();
 
   rec.count += 1;
-  rec.first = rec.first && now - rec.first < 10 * 60 * 1000 ? rec.first : now;
   attempts.set(key, rec);
+  globalGuard.count += 1;
+  if (!globalGuard.first) globalGuard.first = now;
+  console.warn(`[auth] 登录失败 ip=${key} user=${username} 该网络${rec.count}次 全局${globalGuard.count}次`);
   res.status(401).json({ code: 1, message: '用户名或密码错误' });
 });
 
