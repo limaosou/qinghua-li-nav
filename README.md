@@ -48,6 +48,97 @@ npm start
 
 未配置密码时默认账号 `admin / admin123`（仅首次登录用，务必尽快配置）。
 
+---
+
+# Windows 环境搭建（换机器继续开发）
+
+换到另一台 Windows 电脑开发完全没问题：本项目是纯 Node + Express + SQLite，没有平台相关代码。
+唯一要注意的是 `better-sqlite3` 属于**原生模块**，不能从别的系统拷贝 `node_modules`，必须在本机重新安装。
+
+## 1. 准备环境
+
+- 安装 **Node.js 20 或 22 的 LTS x64 版**（官网 msi 安装包，一路下一步即可）。装完验证：
+  ```powershell
+  node -v
+  npm -v
+  ```
+- 安装 **Git for Windows**（自带 Git Bash，也建议用）。
+- 可选：安装 **VS Code**（改 `public/index.html`、`public/admin.html` 很顺手）。
+
+> 若不想折腾原生模块编译，可直接用仓库里的 `docker-compose.yml`（装 Docker Desktop 后 `docker compose up -d --build`），跳过第 3 步。
+
+## 2. 拉代码
+
+```powershell
+git clone https://github.com/limaosou/qinghua-nav.git nav-system
+cd nav-system
+```
+
+## 3. 装依赖
+
+```powershell
+npm install
+```
+
+若 `better-sqlite3` 报编译错误（缺 C++ 构建工具），二选一：
+
+```powershell
+# 方案 A：安装构建工具后重试（需管理员 PowerShell）
+npm install -g windows-build-tools
+npm install
+
+# 方案 B：改用 Docker，避开本机编译
+docker compose up -d --build
+```
+
+## 4. 配置环境变量
+
+```powershell
+copy .env.example .env
+npm run hash-password          # 输入管理员密码，把生成的哈希填进 .env
+notepad .env                   # 填 ADMIN_USERNAME / ADMIN_PASSWORD_HASH / TOKEN_SECRET
+```
+
+`TOKEN_SECRET` 请换成一段随机长字符串（本机开发可与服务器不同，互不影响）。
+
+## 5. 同步数据（重要）
+
+`data/` 目录被 `.gitignore` 排除，**克隆下来是空的**，会生成一批示例数据。
+想在本地看到和线上一样的站点，把服务器上的数据库拷过来放到 `data/` 下即可：
+
+```powershell
+# 在 Windows 上执行（需能 ssh 到服务器）
+scp root@你的服务器:/www/wwwroot/qinghua-nav/data/nav.db .\data\nav.db
+```
+
+没有服务器权限也行：后台「数据备份」页导出 JSON，本地跑起来后再手动录入或写脚本导入。
+
+## 6. 启动
+
+```powershell
+npm start
+# 前台 http://localhost:3000    后台 http://localhost:3000/admin
+```
+
+## 7. 多台机器协作的工作流
+
+```powershell
+git pull            # 开工前先拉，绝不在旧代码上改
+# …… 改代码 ……
+git add .
+git commit -m "说明改了什么"
+git push
+```
+
+然后到服务器上更新：
+
+```bash
+cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
+```
+
+⚠️ **不要两台机器同时改同一个文件**：未 pull 就改会覆盖对方的提交，已踩过坑。
+`node_modules/` 也别跨机器复制（原生模块与平台绑定），每台机器各自 `npm install`。
+
 ## API 一览
 
 | 方法 | 路径 | 说明 |
