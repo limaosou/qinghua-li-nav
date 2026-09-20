@@ -12,6 +12,7 @@ const express = require('express');
 const db = require('../db');
 const settings = require('../settings');
 const { verifyPassword, signToken, requireAuth } = require('../auth');
+const { safeFetch } = require('../netguard');
 
 const router = express.Router();
 
@@ -229,8 +230,8 @@ const CERT_HINT = /cert|ssl|tls|altname|unable_to_verify|self[_ ]?signed|depth_z
 /** 单次探测，返回归一化结果（不重试）。resp 时带上最终落点 URL，供域名漂移检测 */
 async function attempt(url, timeoutMs) {
   try {
-    const r = await fetch(url, {
-      redirect: 'follow',
+    // 走安全闸门：禁止内网/回环/云元数据，且重定向逐跳校验
+    const r = await safeFetch(url, {
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
         'User-Agent': LINK_UA,
@@ -238,7 +239,7 @@ async function attempt(url, timeoutMs) {
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
     });
-    return { kind: 'resp', code: r.status, finalUrl: r.url || '' };
+    return { kind: 'resp', code: r.status, finalUrl: r.finalUrl || '' };
   } catch (e) {
     const code = String(e?.cause?.code || e?.code || '').toUpperCase();
     const msg = String(e?.message || e || '未知错误');
@@ -421,10 +422,11 @@ router.post('/fetch-favicon', async (req, res) => {
   try {
     const u = new URL(/^https?:\/\//.test(raw) ? raw : `https://${raw}`);
     // 优先直接抓取站点 /favicon.ico，转 base64 存储（避免外链失效）
+    // 走安全闸门：内网/回环/云元数据地址直接拒绝（SSRF 防护）
+    let guardMsg = '';
     try {
-      const r = await fetch(u.origin + '/favicon.ico', {
+      const r = await safeFetch(u.origin + '/favicon.ico', {
         signal: AbortSignal.timeout(6000),
-        redirect: 'follow',
         headers: { 'User-Agent': 'Mozilla/5.0 NavHub/1.0' },
       });
       const ct = r.headers.get('content-type') || '';
@@ -434,7 +436,12 @@ router.post('/fetch-favicon', async (req, res) => {
           return res.json({ code: 0, data: { icon: `data:${ct.split(';')[0]};base64,${buf.toString('base64')}` } });
         }
       }
-    } catch { /* fallthrough */ }
+    } catch (e) {
+      guardMsg = String(e?.message || '');
+    }
+    if (/禁止访问|仅支持/.test(guardMsg)) {
+      return res.status(400).json({ code: 1, message: `不允许抓取该地址：${guardMsg}` });
+    }
     // 兜底：第三方图标服务
     return res.json({ code: 0, data: { icon: `https://favicon.im/${u.hostname}?larger=true` } });
   } catch {
@@ -448,9 +455,8 @@ router.post('/fetch-meta', async (req, res) => {
   if (!raw) return res.status(400).json({ code: 1, message: '请先填写网址' });
   try {
     const u = new URL(/^https?:\/\//.test(raw) ? raw : `https://${raw}`);
-    const r = await fetch(u.href, {
+    const r = await safeFetch(u.href, {
       signal: AbortSignal.timeout(8000),
-      redirect: 'follow',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 NavHub/1.0',
         'Accept': 'text/html,application/xhtml+xml',
@@ -505,8 +511,9 @@ router.post('/fetch-meta', async (req, res) => {
       : '';
 
     res.json({ code: 0, data: { title, description, tags } });
-  } catch {
-    res.status(400).json({ code: 1, message: '抓取失败，请手动填写' });
+  } catch (e) {
+    const m = String(e?.message || '');
+    res.status(400).json({ code: 1, message: /禁止访问|仅支持/.test(m) ? `不允许抓取该地址：${m}` : '抓取失败，请手动填写' });
   }
 });
 

@@ -20,6 +20,19 @@ app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '2mb' }));
 
+// 基础安全响应头（站点用了 CDN 版 Tailwind 与内联脚本，故不启用严格 CSP，仅补无副作用的那几个）
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');       // 禁止 MIME 嗅探
+  res.set('X-Frame-Options', 'SAMEORIGIN');           // 禁止被别的站点 iframe 嵌套（点击劫持）
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.set('X-XSS-Protection', '0');                   // 交给浏览器现代 XSS 过滤，避免旧过滤器引入问题
+  if (req.headers['x-forwarded-proto'] === 'https') {
+    res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); // 仅在 HTTPS（反代后）下发
+  }
+  next();
+});
+
 // 首页 SSR：内容直接输出进 HTML，利于 SEO 与 AI 搜索抓取
 app.get('/', (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');
