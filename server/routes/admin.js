@@ -207,15 +207,24 @@ router.post('/fetch-meta', async (req, res) => {
       },
     });
     const ct = r.headers.get('content-type') || '';
-    if (!r.ok || !ct.includes('text/html')) {
-      return res.json({ code: 0, data: {} });
+    if (!r.ok || !/text\/html|xhtml/i.test(ct)) {
+      return res.json({ code: 0, data: {}, message: `无法按 HTML 解析（HTTP ${r.status}，类型 ${ct || '未知'}）` });
     }
     const buf = Buffer.from(await r.arrayBuffer());
     let html = buf.toString('utf8').slice(0, 600000);
-    // 非UTF-8（如 GBK/GB2312）站点按声明的编码重新解码，避免乱码
-    const cs = (html.match(/charset\s*=\s*["']?([\w-]+)/i) || [])[1] || '';
-    if (cs && !/^utf-?8$/i.test(cs)) {
-      try { html = new TextDecoder(cs.toLowerCase()).decode(buf).slice(0, 600000); } catch { /* 保持 utf8 */ }
+    // 非UTF-8（如 GBK/GB2312/Big5）站点按声明编码重解码；找不到声明时若已现乱码则尝试常见中文编码兜底
+    const cs = ((html.match(/charset\s*=\s*["']?([\w-]+)/i) || [])[1] || '').toLowerCase();
+    const decodeWith = label => { try { return new TextDecoder(label).decode(buf).slice(0, 600000); } catch { return null; } };
+    const alias = { gb2312: 'gbk', gbk2312: 'gbk', 'iso-8859-1': 'windows-1252', utf8: 'utf-8' };
+    const norm = alias[cs] || cs;
+    if (norm && norm !== 'utf-8') {
+      const retry = decodeWith(norm);
+      if (retry) html = retry;
+    } else if (!norm && /\uFFFD/.test(html.slice(0, 3000))) {
+      for (const label of ['gbk', 'gb18030', 'big5']) {
+        const retry = decodeWith(label);
+        if (retry && !/\uFFFD/.test(retry.slice(0, 3000))) { html = retry; break; }
+      }
     }
 
     const clean = s => String(s || '')
