@@ -202,14 +202,17 @@ tailwind.config = {
       </div>
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-          <thead><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50/60 dark:bg-gray-800/40">
-            <th class="px-5 py-3 font-medium">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell">分类</th>
-            <th class="px-3 py-3 font-medium hidden lg:table-cell">URL</th><th class="px-3 py-3 font-medium">状态</th>
-            <th class="px-5 py-3 font-medium text-right">操作</th>
-          </tr></thead>
-          <tbody id="siteTable"></tbody>
-        </table>
+        <!-- 固定最大高度的内滚动容器：翻页只滚表格区，页面上方（筛选栏）和下方（分页条）位置保持不变，避免整页抖动 -->
+        <div id="siteTableWrap" class="max-h-[62vh] overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0 z-10"><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/95">
+              <th class="px-5 py-3 font-medium">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell">分类</th>
+              <th class="px-3 py-3 font-medium hidden lg:table-cell">URL</th><th class="px-3 py-3 font-medium">状态</th>
+              <th class="px-5 py-3 font-medium text-right">操作</th>
+            </tr></thead>
+            <tbody id="siteTable"></tbody>
+          </table>
+        </div>
         <div id="sitePager" class="flex flex-wrap items-center gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-800 text-xs text-slate-500 dark:text-slate-400"></div>
       </div>
     </section>
@@ -630,6 +633,8 @@ function renderSites() {
     </tr>`;
   }).join('');
   renderSitePager(list.length, totalPages, size, page.length, page.length ? from + 1 : 0);
+  const wrap = $('siteTableWrap');
+  if (wrap) wrap.scrollTop = 0; // 翻页/筛选后回到表格顶部，不残留上一页的滚动位置
   icons();
 }
 
