@@ -13,16 +13,6 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 /** 每个分类默认展示的站点数，超出的折叠进「更多」（与前端 public/index.html 保持一致） */
 const SITE_LIMIT = 20;
 
-/** 折叠/展开按钮，结构与前端 moreBtnHTML 保持一致 */
-function moreBtnHTML(id, hidden) {
-  return `
-      <button type="button" data-more="${id}" data-count="${hidden}"
-        class="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-colors duration-200 cursor-pointer">
-        <span class="more-label">展开剩余 ${hidden} 个站点</span>
-        <svg data-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             class="w-3.5 h-3.5 transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
-      </button>`;
-}
 const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
 const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
 
@@ -73,11 +63,14 @@ function renderFragments(data) {
         <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-base">${c.icon || '📁'}</span>
         <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
         <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
+        ${c.sites.length > SITE_LIMIT ? `
+        <a href="/cat/${c.id}" class="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="查看「${esc(c.name)}」全部 ${c.sites.length} 个站点">
+          更多<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        </a>` : ''}
       </div>
-      <div id="grid-${c.id}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        ${c.sites.map((s, i) => cardHTML(s, i, i >= SITE_LIMIT ? ' more-item' : '')).join('')}
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        ${c.sites.slice(0, SITE_LIMIT).map((s, i) => cardHTML(s, i)).join('')}
       </div>
-      ${c.sites.length > SITE_LIMIT ? moreBtnHTML(c.id, c.sites.length - SITE_LIMIT) : ''}
     </section>`).join('');
 
   return { catnav, catnavMobile, content };
@@ -109,6 +102,30 @@ function buildJSONLD(data, base, s) {
 }
 
 /** 生成首页 HTML（SSR） */
+/** 品牌区（图片/emoji + 站名），首页与分类页共用 */
+function buildBrandHTML(s) {
+  return s.brand_image
+    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
+      + `<span>${esc(s.site_name)}</span>`
+    : `<span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-sm text-base">${esc(s.brand_icon || '🧭')}</span>`
+      + `<span>${esc(s.site_name)}</span>`;
+}
+
+/** 浏览器标签页 favicon：品牌图片优先，否则用品牌 emoji 动态生成 SVG */
+function buildFaviconHTML(s) {
+  return s.brand_image
+    ? `<link rel="icon" type="image/png" href="${esc(s.brand_image)}">`
+    : `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${s.brand_icon || '🧭'}</text></svg>`)}">`;
+}
+
+/** 页脚：文本 + 备案号（如有） */
+function buildFooterHTML(s) {
+  const icp = String(s.icp || '').trim()
+    ? ` · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="hover:text-indigo-500 transition-colors">${esc(s.icp)}</a>`
+    : '';
+  return `${esc(s.footer_text)}${icp}`;
+}
+
 function renderNavPage(req) {
   if (!templateCache) {
     templateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
@@ -121,26 +138,14 @@ function renderNavPage(req) {
   const navJSON = JSON.stringify(data).replace(/</g, '\\u003c');
   const settingsJSON = JSON.stringify(settings.getPublicSettings()).replace(/</g, '\\u003c');
 
-  // 品牌图标：图片优先（图 + 站名），否则 emoji 渐变方块 + 站名
-  const brandHTML = s.brand_image
-    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
-      + `<span>${esc(s.site_name)}</span>`
-    : `<span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-sm text-base">${esc(s.brand_icon || '🧭')}</span>`
-      + `<span>${esc(s.site_name)}</span>`;
-
-  // 浏览器标签页 favicon：品牌图片优先，否则用品牌 emoji 动态生成 SVG
-  const faviconHTML = s.brand_image
-    ? `<link rel="icon" type="image/png" href="${esc(s.brand_image)}">`
-    : `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${s.brand_icon || '🧭'}</text></svg>`)}">`;
+  // 品牌图标与 favicon（共用函数）
+  const brandHTML = buildBrandHTML(s);
+  const faviconHTML = buildFaviconHTML(s);
 
   const announceHTML = String(s.announcement || '').trim()
     ? `<div class="max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-sm text-indigo-700 dark:text-indigo-300">
          <i data-lucide="megaphone" class="w-4 h-4 shrink-0"></i><span>${esc(s.announcement)}</span>
        </div>`
-    : '';
-
-  const icpHTML = String(s.icp || '').trim()
-    ? ` · <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" class="hover:text-indigo-500 transition-colors">${esc(s.icp)}</a>`
     : '';
 
   // 顶部导航链接（后台可配置）
@@ -165,11 +170,67 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_BRAND-->', brandHTML)
     .replaceAll('<!--SSR_ANNOUNCEMENT-->', announceHTML)
     .replaceAll('<!--SSR_H1-->', esc(s.site_subtitle))
-    .replaceAll('<!--SSR_FOOTER-->', `${esc(s.footer_text)}${icpHTML}`)
+    .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s))
     .replaceAll('<!--SSR_CATNAV-->', frag.catnav)
     .replaceAll('<!--SSR_CATNAV_MOBILE-->', frag.catnavMobile)
     .replaceAll('<!--SSR_CONTENT-->', frag.content)
     .replaceAll('<!--SSR_DATA-->', `<script>window.__NAV__=${navJSON};window.__SETTINGS__=${settingsJSON};</script>`);
+}
+
+// ============ 分类详情页（/cat/:id）============
+let catTemplateCache = null;
+
+/** 渲染单个分类的全部站点；分类不存在返回 null */
+function renderCategoryPage(req, catId) {
+  if (!catTemplateCache) {
+    catTemplateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'cat.html'), 'utf8');
+  }
+  const data = getNavData();
+  const s = settings.getSettings();
+  const cat = data.find(c => String(c.id) === String(catId));
+  if (!cat) return null;
+
+  const base = baseUrl(req);
+  const catJSONLD = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: s.site_name, item: base + '/' },
+        { '@type': 'ListItem', position: 2, name: cat.name, item: `${base}/cat/${cat.id}` },
+      ] },
+      { '@type': 'ItemList', name: cat.name, numberOfItems: cat.sites.length,
+        itemListElement: cat.sites.slice(0, 100).map((st, i) =>
+          ({ '@type': 'ListItem', position: i + 1, name: st.title, url: st.url })) },
+    ],
+  };
+  const heads = cat.sites.slice(0, 3).map(x => x.title).join('、');
+  const desc = `${s.site_name}「${cat.name}」分类共精选收录 ${cat.sites.length} 个网站${heads ? `，包括 ${heads} 等` : ''}，持续更新。`;
+
+  const siblings = data.filter(c => c.id !== cat.id);
+  const siblingsHTML = siblings.length
+    ? `<div class="mt-10 pt-6 border-t border-gray-200/70 dark:border-gray-800">
+        <p class="text-xs font-medium text-slate-400 dark:text-slate-500 mb-3">浏览其他分类</p>
+        <div class="flex flex-wrap gap-2">
+          ${siblings.map(c => `<a href="/cat/${c.id}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-500 dark:hover:border-indigo-500/40 dark:hover:text-indigo-400 transition-colors"><span>${c.icon || '📁'}</span>${esc(c.name)}<span class="text-slate-400 dark:text-slate-500">${c.sites.length}</span></a>`).join('')}
+        </div>
+      </div>`
+    : '';
+
+  return catTemplateCache
+    .replaceAll('<!--SSR_CAT_TITLE-->', esc(`${cat.name} - ${s.site_name}`))
+    .replaceAll('<!--SSR_CAT_DESCRIPTION-->', esc(desc))
+    .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
+    .replaceAll('<!--SSR_CANONICAL-->', esc(`${base}/cat/${cat.id}`))
+    .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(catJSONLD).replace(/</g, '\\u003c')}</script>`)
+    .replaceAll('<!--SSR_FAVICON-->', buildFaviconHTML(s))
+    .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
+    .replaceAll('<!--SSR_BRAND-->', buildBrandHTML(s))
+    .replaceAll('<!--SSR_CAT_NAME-->', esc(cat.name))
+    .replaceAll('<!--SSR_CAT_ICON-->', cat.icon || '📁')
+    .replaceAll('<!--SSR_CAT_COUNT-->', String(cat.sites.length))
+    .replaceAll('<!--SSR_CAT_CARDS-->', cat.sites.map((st, i) => cardHTML(st, i)).join('\n'))
+    .replaceAll('<!--SSR_CAT_SIBLINGS-->', siblingsHTML)
+    .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s));
 }
 
 /** 生成 llms.txt（面向 AI 搜索引擎的内容清单，GEO 优化） */
@@ -194,4 +255,4 @@ function renderLLMsTxt(req) {
   return lines.join('\n');
 }
 
-module.exports = { renderNavPage, renderLLMsTxt };
+module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, getNavData };

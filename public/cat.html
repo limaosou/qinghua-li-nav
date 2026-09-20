@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!--SSR_CAT_TITLE--></title>
+<meta name="description" content="<!--SSR_CAT_DESCRIPTION-->">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#4F46E5">
+<!--SSR_FAVICON-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<!--SSR_SITE_NAME-->">
+<meta property="og:title" content="<!--SSR_CAT_TITLE-->">
+<meta property="og:description" content="<!--SSR_CAT_DESCRIPTION-->">
+<link rel="canonical" href="<!--SSR_CANONICAL-->">
+<meta property="og:url" content="<!--SSR_CANONICAL-->">
+<!--SSR_JSONLD-->
+<!--SSR_CUSTOM_HEAD-->
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } }
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .card-hover { transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease; }
+  .card-hover:hover { transform: translateY(-2px); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+  kbd { font-family: inherit; }
+  .bg-deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg-deco::before, .bg-deco::after {
+    content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .18;
+  }
+  .bg-deco::before { width: 480px; height: 480px; top: -160px; left: -120px; background: radial-gradient(circle, #6366f1, transparent 70%); }
+  .bg-deco::after  { width: 520px; height: 520px; top: -120px; right: -160px; background: radial-gradient(circle, #0ea5e9, transparent 70%); }
+  .dark .bg-deco::before, .dark .bg-deco::after { opacity: .12; }
+  .card-hover img, .card-hover > div:first-child > div:first-child span { transition: transform .25s ease; }
+  .card-hover:hover img { transform: scale(1.1); }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .card-hover, .card-hover:hover { transition: none; transform: none; }
+  }
+</style>
+</head>
+<body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen antialiased">
+<div class="bg-deco"></div>
+
+<!-- ===== 顶栏 ===== -->
+<header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-200/60 dark:border-gray-800/60">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+    <a href="/" class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="返回首页">
+      <!--SSR_BRAND-->
+    </a>
+    <div class="flex items-center gap-2">
+      <button id="themeBtn" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" aria-label="切换深浅色">
+        <i data-lucide="moon-star" class="w-4 h-4"></i>
+      </button>
+      <a href="/" class="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>返回首页
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 主体 ===== -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+  <!-- 面包屑 -->
+  <nav aria-label="面包屑" class="mb-5 text-xs text-slate-400 dark:text-slate-500">
+    <a href="/" class="hover:text-indigo-500 transition-colors">首页</a>
+    <span class="mx-1.5">/</span>
+    <span class="text-slate-600 dark:text-slate-300 font-medium"><!--SSR_CAT_NAME--></span>
+  </nav>
+
+  <!-- 分类标题 -->
+  <div class="flex items-center gap-3 mb-6">
+    <span class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-xl"><!--SSR_CAT_ICON--></span>
+    <div>
+      <h1 class="text-xl font-bold tracking-tight"><!--SSR_CAT_NAME--></h1>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">共收录 <span class="font-semibold text-indigo-500"><!--SSR_CAT_COUNT--></span> 个精选站点</p>
+    </div>
+  </div>
+
+  <!-- 全部站点 -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+<!--SSR_CAT_CARDS-->
+  </div>
+
+  <!-- 同级分类 -->
+  <!--SSR_CAT_SIBLINGS-->
+</main>
+
+<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+  <!--SSR_FOOTER-->
+</footer>
+
+<script>
+/* 主题切换（与首页共用 navhub_theme 存储） */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  root.classList.toggle('dark');
+  localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
+});
+if (window.lucide) lucide.createIcons();
+</script>
+</body>
+</html>

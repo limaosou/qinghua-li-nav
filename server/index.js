@@ -11,7 +11,7 @@ require('./db'); // 初始化数据库（建表 + 首次示例数据）
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const settings = require('./settings');
-const { renderNavPage, renderLLMsTxt } = require('./render');
+const { renderNavPage, renderCategoryPage, renderLLMsTxt, getNavData } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
@@ -25,6 +25,14 @@ app.get('/', (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');
   res.send(renderNavPage(req));
 });
+// 分类详情页：/cat/:id，展示该分类下全部站点（首页每个分类只展示前 20 个）
+app.get('/cat/:id', (req, res) => {
+  const html = renderCategoryPage(req, req.params.id);
+  if (!html) return res.redirect('/');
+  res.set('Cache-Control', 'public, max-age=60');
+  res.send(html);
+});
+
 // robots.txt：后台「站点配置」在线编辑
 app.get('/robots.txt', (req, res) => {
   res.set('Content-Type', 'text/plain; charset=utf-8');
@@ -36,15 +44,19 @@ app.get('/llms.txt', (req, res) => {
   res.send(renderLLMsTxt(req));
 });
 
-// sitemap.xml：单页导航站，列出首页
+// sitemap.xml：首页 + 各分类详情页
 app.get('/sitemap.xml', (req, res) => {
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const base = `${proto}://${host}`;
+  const catUrls = getNavData()
+    .map(c => `  <url><loc>${base}/cat/${c.id}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`)
+    .join('\n');
   res.set('Content-Type', 'application/xml; charset=utf-8');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+${catUrls}
 </urlset>`);
 });
 
