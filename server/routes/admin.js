@@ -246,7 +246,7 @@ async function attempt(url, timeoutMs) {
     let kind = 'net';
     if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') kind = 'dns';
     else if (['ETIMEDOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(code) || /timeout|abort/i.test(msg)) kind = 'timeout';
-    else if (/header/i.test(msg) || /HPE_/i.test(code)) kind = 'header';
+    else if (/header|overflow/i.test(msg) || /HPE_|HEADERS_OVERFLOW/i.test(code)) kind = 'header';
     else if (CERT_HINT.test(msg) || CERT_HINT.test(code) || CERT_HINT.test(causeMsg)) kind = 'cert';
     else if (code === 'ECONNREFUSED') kind = 'refused';
     else if (['ECONNRESET', 'EPIPE', 'UND_ERR_SOCKET', 'ERR_SOCKET_CLOSED'].includes(code)) kind = 'reset';
