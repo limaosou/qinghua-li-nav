@@ -9,6 +9,20 @@ const db = require('./db');
 const settings = require('./settings');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/** 每个分类默认展示的站点数，超出的折叠进「更多」（与前端 public/index.html 保持一致） */
+const SITE_LIMIT = 20;
+
+/** 折叠/展开按钮，结构与前端 moreBtnHTML 保持一致 */
+function moreBtnHTML(id, hidden) {
+  return `
+      <button type="button" data-more="${id}" data-count="${hidden}"
+        class="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-colors duration-200 cursor-pointer">
+        <span class="more-label">展开剩余 ${hidden} 个站点</span>
+        <svg data-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             class="w-3.5 h-3.5 transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
+      </button>`;
+}
 const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
 const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
 
@@ -22,11 +36,11 @@ function getNavData() {
 }
 
 /* 与前端 index.html 中的模板保持一致 */
-function cardHTML(s, i) {
+function cardHTML(s, i, extraClass = '') {
   const tags = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   return `
   <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
-     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]">
+     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
@@ -60,9 +74,10 @@ function renderFragments(data) {
         <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
         <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        ${c.sites.map((s, i) => cardHTML(s, i)).join('')}
+      <div id="grid-${c.id}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        ${c.sites.map((s, i) => cardHTML(s, i, i >= SITE_LIMIT ? ' more-item' : '')).join('')}
       </div>
+      ${c.sites.length > SITE_LIMIT ? moreBtnHTML(c.id, c.sites.length - SITE_LIMIT) : ''}
     </section>`).join('');
 
   return { catnav, catnavMobile, content };
@@ -150,7 +165,7 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_BRAND-->', brandHTML)
     .replaceAll('<!--SSR_ANNOUNCEMENT-->', announceHTML)
     .replaceAll('<!--SSR_H1-->', esc(s.site_subtitle))
-    .replaceAll('<!--SSR_FOOTER-->', `${esc(s.footer_text)}${icpHTML} · <a href="/admin" class="text-indigo-500 hover:underline">管理</a>`)
+    .replaceAll('<!--SSR_FOOTER-->', `${esc(s.footer_text)}${icpHTML}`)
     .replaceAll('<!--SSR_CATNAV-->', frag.catnav)
     .replaceAll('<!--SSR_CATNAV_MOBILE-->', frag.catnavMobile)
     .replaceAll('<!--SSR_CONTENT-->', frag.content)

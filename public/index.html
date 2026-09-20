@@ -37,6 +37,10 @@ tailwind.config = {
   html { scroll-padding-top: 96px; }
   .card-hover { transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease; }
   .card-hover:hover { transform: translateY(-2px); }
+  /* 分类超出 SITE_LIMIT 的站点默认折叠，点「更多」展开。
+     必须加 !important：卡片自带 Tailwind 的 .block(display:block)，同特异度下 CDN 注入的样式在下会覆盖此处 */
+  .more-item { display: none !important; }
+  .more-open .more-item { display: block !important; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
   kbd { font-family: inherit; }
@@ -213,11 +217,40 @@ renderEngines();
 /* ================= 渲染导航数据 ================= */
 let NAV_DATA = [];
 
-function cardHTML(s, i) {
+/** 每个分类默认展示的站点数，超出的折叠进「更多」 */
+const SITE_LIMIT = 20;
+
+/** 折叠/展开按钮 */
+function moreBtnHTML(id, hidden) {
+  return `
+      <button type="button" data-more="${id}" data-count="${hidden}"
+        class="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-colors duration-200 cursor-pointer">
+        <span class="more-label">展开剩余 ${hidden} 个站点</span>
+        <svg data-arrow viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             class="w-3.5 h-3.5 transition-transform duration-200"><path d="m6 9 6 6 6-6"/></svg>
+      </button>`;
+}
+
+/** 绑定展开/收起（render 后需重新绑定） */
+function setupMoreButtons() {
+  document.querySelectorAll('[data-more]').forEach(btn => {
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => {
+      const grid = document.getElementById('grid-' + btn.dataset.more);
+      if (!grid) return;
+      const open = grid.classList.toggle('more-open');
+      btn.querySelector('.more-label').textContent = open ? '收起' : `展开剩余 ${btn.dataset.count} 个站点`;
+      btn.querySelector('[data-arrow]')?.classList.toggle('rotate-180', open);
+    });
+  });
+}
+
+function cardHTML(s, i, extraClass = '') {
   const tags = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   return `
   <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
-     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]">
+     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
@@ -255,11 +288,13 @@ function render() {
         <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
         <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        ${c.sites.map((s, i) => cardHTML(s, i)).join('')}
+      <div id="grid-${c.id}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        ${c.sites.map((s, i) => cardHTML(s, i, i >= SITE_LIMIT ? ' more-item' : '')).join('')}
       </div>
+      ${c.sites.length > SITE_LIMIT ? moreBtnHTML(c.id, c.sites.length - SITE_LIMIT) : ''}
     </section>`).join('');
 
+  setupMoreButtons();
   lucide.createIcons();
   setupScrollSpy();
 }
