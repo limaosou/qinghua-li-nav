@@ -226,7 +226,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // 而 e.message 往往只是 "fetch failed"，所以要把 cause.message 也纳入判断
 const CERT_HINT = /cert|ssl|tls|altname|unable_to_verify|self[_ ]?signed|depth_zero|expired/i;
 
-/** 单次探测，返回归一化结果（不重试） */
+/** 单次探测，返回归一化结果（不重试）。resp 时带上最终落点 URL，供域名漂移检测 */
 async function attempt(url, timeoutMs) {
   try {
     const r = await fetch(url, {
@@ -238,7 +238,7 @@ async function attempt(url, timeoutMs) {
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
     });
-    return { kind: 'resp', code: r.status };
+    return { kind: 'resp', code: r.status, finalUrl: r.url || '' };
   } catch (e) {
     const code = String(e?.cause?.code || e?.code || '').toUpperCase();
     const msg = String(e?.message || e || '未知错误');
@@ -289,14 +289,28 @@ function classify(a) {
   }
 }
 
+/** 判断两个 host 是否同一站点（忽略 www，兼容 com.cn 等二级后缀） */
+function sameSite(h1, h2) {
+  const base = h => {
+    const parts = String(h).replace(/^www\./, '').toLowerCase().split('.');
+    const tail = parts.slice(-2).join('.');
+    return ['com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn', 'ac.cn'].includes(tail) && parts.length >= 3
+      ? parts.slice(-3).join('.') : tail;
+  };
+  return base(h1) === base(h2);
+}
+
 /**
  * 探测单个网址。分三档：
- *   ok   —— 2xx/3xx
- *   warn —— 拒绝探测(401/403/429/503)、证书问题、响应头异常：站点多半活着，不建议删
+ *   ok   —— 2xx/3xx；白名单内的站点直接判 ok（跳过探测，不再反复出现在可疑名单里）
+ *   warn —— 拒绝探测(401/403/429/503)、证书问题、响应头异常、重定向落到其他域名：多半活着，不建议直接删
  *   fail —— 4xx、5xx(重试后)、DNS 失败、超时、连接拒绝
  * 5xx / 超时 / 连接重置会换更长的超时重试一次，避免瞬时抖动被误杀。
  */
 async function probeSite(site, whitelist = []) {
+  if (whitelist.includes(site.url)) {
+    return { status: 'ok', code: 0, message: '已标记正常（白名单，跳过探测）', whitelisted: true };
+  }
   const a = await attempt(site.url, 8000);
   let r = classify(a);
   // 服务端错误、超时、连接重置 → 重试一次（DNS 失败不重试，重试也没用）；4xx 属明确响应，不重试
@@ -309,11 +323,17 @@ async function probeSite(site, whitelist = []) {
     if (r.status === 'fail' && a.kind === 'resp') r.message = `HTTP ${a.code}（已重试一次仍失败）`;
     else if (r.status === 'fail' && a.kind === 'timeout') r.message = '连接超时（已重试一次，15s）';
   }
-  // 白名单：人工确认过正常的站点，即使探测失败也只算「可疑」，不进失效名单
-  if (r.status === 'fail' && whitelist.includes(site.url)) {
-    return { status: 'warn', code: r.code, message: `已标记正常（白名单），本次探测：${r.message}`, whitelisted: true };
+  // 域名漂移：登记的是 A 域名，跳转链最后落到 B 域名（挂羊头卖狗肉/换域名/被接替）
+  if (r.status === 'ok' && a.finalUrl) {
+    try {
+      const orig = new URL(site.url).host;
+      const fin = new URL(a.finalUrl).host;
+      if (!sameSite(orig, fin)) {
+        r = { status: 'warn', code: r.code, message: `已跳转到其他站点（${fin}）：原网址可能已更换域名或被他人接替，建议核实后更新或删除`, drifted: true };
+      }
+    } catch { /* URL 解析失败则忽略 */ }
   }
-  return { ...r, whitelisted: whitelist.includes(site.url) };
+  return { ...r, whitelisted: false };
 }
 
 router.post('/check-links/start', (req, res) => {
@@ -352,8 +372,8 @@ router.get('/check-links/status', (req, res) => {
   });
 });
 
-/** 白名单维护：人工确认某条链接正常后，体检不再把它算作失效 */
-router.post('/check-links/whitelist', (req, res) => {
+/** 白名单维护：标记正常后跳过探测、不再出现在可疑/失效名单；取消标记则当场重新探测一次 */
+router.post('/check-links/whitelist', async (req, res) => {
   const { action, url } = req.body || {};
   const list = getWhitelist();
   if (action === 'add') {
@@ -369,8 +389,23 @@ router.post('/check-links/whitelist', (req, res) => {
   }
   const next = getWhitelist();
   linkJob.whitelist = next;
-  // 已出结果里同步刷新白名单状态
-  for (const r of linkJob.results) r.whitelisted = next.includes(r.url);
+  // 已出结果同步刷新：标记 → 直接算 ok（不再回可疑堆）；取消/清空 → 当场补一次探测还原真实状态
+  for (const r of linkJob.results) {
+    const isTarget = (action === 'add' && r.url === url)
+      || (action === 'remove' && r.url === url)
+      || (action === 'clear' && r.whitelisted);
+    if (!isTarget) continue;
+    if (action === 'add') {
+      r.whitelisted = true;
+      r.status = 'ok';
+      r.message = '已标记正常（白名单，跳过探测）';
+      delete r.drifted;
+    } else {
+      const pr = await probeSite({ url: r.url }, next);
+      Object.assign(r, { status: pr.status, code: pr.code, message: pr.message, whitelisted: false });
+      delete r.drifted;
+    }
+  }
   return res.json({ code: 0, data: { whitelist: next } });
 });
 

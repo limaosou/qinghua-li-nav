@@ -199,6 +199,7 @@ tailwind.config = {
         </div>
         <div id="lcSummary" class="hidden mt-3 flex flex-wrap gap-2 text-xs"></div>
         <div id="lcTable" class="mt-1"></div>
+        <div id="lcWl" class="mt-2"></div>
       </div>
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
@@ -788,6 +789,7 @@ async function pollLinkCheck() {
 function renderLcTable() {
   const cnt = { ok: 0, warn: 0, fail: 0 };
   lcResults.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
+  const wlCount = lcResults.filter(r => r.whitelisted).length;
   const sum = $('lcSummary');
   if (lcResults.length) {
     sum.classList.remove('hidden', 'flex');
@@ -796,7 +798,8 @@ function renderLcTable() {
       <span class="px-2 py-0.5 rounded-md font-medium bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400">失效 ${cnt.fail}</span>
       <span class="px-2 py-0.5 rounded-md font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">可疑 ${cnt.warn}</span>
       <span class="px-2 py-0.5 rounded-md font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">正常 ${cnt.ok}</span>
-      <span class="text-slate-400 self-center">可疑=站点拒绝探测（可能拦爬虫），建议浏览器确认后再处理</span>`;
+      ${wlCount ? `<span class="px-2 py-0.5 rounded-md font-medium border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400">白名单 ${wlCount}</span>` : ''}
+      <span class="text-slate-400 self-center">可疑=拒绝探测（拦爬虫）/证书问题/跳转到其他域名，建议浏览器确认后再处理</span>`;
     $('lcDelFailBtn').classList.toggle('hidden', cnt.fail === 0);
   } else { sum.classList.add('hidden'); }
 
@@ -823,12 +826,30 @@ function renderLcTable() {
         <td class="px-3 py-2.5 text-xs text-slate-400 max-w-[200px] truncate" title="${esc(r.message || '')}">${esc(r.message || `HTTP ${r.code}`)}</td>
         <td class="px-4 py-2.5 text-right whitespace-nowrap">
           ${r.whitelisted
-            ? `<button data-lc-unwl="${r.id}" class="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="取消「标记正常」（重新纳入失效判定）"><i data-lucide="bookmark-minus" class="w-3.5 h-3.5"></i></button>`
-            : `<button data-lc-ok="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="这条其实能打开：标记正常，以后体检不再算失效"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i></button>`}
+            ? `<button data-lc-unwl="${r.id}" class="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="取消「标记正常」（重新纳入检测）"><i data-lucide="bookmark-minus" class="w-3.5 h-3.5"></i></button>`
+            : `<button data-lc-ok="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="这条其实能打开：标记正常，以后检测跳过"><i data-lucide="badge-check" class="w-3.5 h-3.5"></i></button>`}
           <button data-lc-del="${r.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除该网址"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </td>
       </tr>`;
     }).join('') + `</table></div>`;
+
+  // 白名单清单：被标记正常的站点单独列出，可随时取消
+  const wls = lcResults.filter(r => r.whitelisted);
+  const wlEl = $('lcWl');
+  if (wls.length) {
+    wlEl.innerHTML = `<details class="border border-emerald-100 dark:border-emerald-500/20 rounded-xl px-4 py-2.5">
+      <summary class="text-xs text-emerald-600 dark:text-emerald-400 cursor-pointer select-none flex items-center gap-1.5">
+        <i data-lucide="bookmark-check" class="w-3.5 h-3.5"></i>白名单 ${wls.length} 条（已标记正常，检测时跳过）
+      </summary>
+      <div class="mt-1.5 divide-y divide-gray-50 dark:divide-gray-800/60">
+        ${wls.map(r => `<div class="flex items-center gap-2 py-1.5 text-xs">
+          <span class="font-medium">${esc(r.title)}</span>
+          <span class="text-slate-400 truncate max-w-[280px]">${esc(r.url)}</span>
+          <button data-lc-unwl="${r.id}" class="ml-auto px-2 py-0.5 rounded-lg border border-gray-200 dark:border-gray-700 text-slate-400 hover:text-emerald-600 hover:border-emerald-300 cursor-pointer transition-colors">取消标记</button>
+        </div>`).join('')}
+      </div>
+    </details>`;
+  } else { wlEl.innerHTML = ''; }
   icons();
 }
 
@@ -853,22 +874,23 @@ $('lcDelFailBtn').addEventListener('click', async () => {
   toast(`已删除 ${ok} 条失效网址`);
   await loadAll();
 });
-// 白名单：人工确认某条链接其实能打开 → 标记正常，后续体检不再算失效（"删除全部失效" 也不会误删）
+// 白名单：人工确认某条链接其实能打开 → 标记正常，后续体检直接跳过，不再出现在可疑/失效名单
 async function markLinkOk(id, add) {
   const r = lcResults.find(x => x.id === +id);
   if (!r) return;
   try {
     await api('/api/admin/check-links/whitelist', { action: add ? 'add' : 'remove', url: r.url });
-    r.whitelisted = add;
-    if (add && r.status === 'fail') { r.status = 'warn'; r.message = `已标记正常（白名单），本次探测：${r.message}`; }
-    else if (!add && /已标记正常/.test(r.message || '')) r.status = 'fail';
-    CHECK.set(r.id, r);
+    // 服务端已同步状态（标记→ok / 取消→当场重新探测），拉一次保持前后端一致
+    const st = await api('/api/admin/check-links/status', null, 'GET');
+    lcResults = st.results || [];
+    CHECK.clear();
+    lcResults.forEach(x => CHECK.set(x.id, x));
     renderLcTable(); renderSites();
-    toast(add ? '已标记正常，后续不再算失效' : '已取消标记');
+    toast(add ? '已标记正常：下次检测跳过，不再算可疑/失效' : '已取消标记：已重新探测');
   } catch (e) { toast(e.message, false); }
 }
 
-$('lcTable').addEventListener('click', async e => {
+const lcRowClick = async e => {
   const okBtn = e.target.closest('[data-lc-ok]');
   if (okBtn) return markLinkOk(okBtn.dataset.lcOk, true);
   const unwl = e.target.closest('[data-lc-unwl]');
@@ -886,7 +908,10 @@ $('lcTable').addEventListener('click', async e => {
     toast('已删除');
     await loadAll();
   } catch (err) { toast(err.message, false); }
-});
+};
+// 体检结果表和白名单清单共用同一套行内操作（标记正常/取消标记/删除）
+$('lcTable').addEventListener('click', lcRowClick);
+$('lcWl').addEventListener('click', lcRowClick);
 // 进入网址管理 tab 时：恢复上次的体检结果（服务端内存里还有的话），进行中的任务续上进度轮询
 async function resumeLinkCheck() {
   try {
