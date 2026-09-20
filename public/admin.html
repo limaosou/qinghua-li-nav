@@ -86,7 +86,7 @@ tailwind.config = {
 
   <main class="max-w-6xl mx-auto px-4 py-6">
     <!-- Tab 切换 -->
-    <div class="flex gap-1.5 mb-6 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-2xl p-1.5 w-fit shadow-sm">
+    <div class="thin-scroll flex gap-1.5 mb-6 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800 rounded-2xl p-1.5 w-fit max-w-full overflow-x-auto shadow-sm">
       <button data-tab="cats" class="tab-btn flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200 cursor-pointer">
         <i data-lucide="folder" class="w-4 h-4"></i>分类管理
       </button>
@@ -204,13 +204,13 @@ tailwind.config = {
 
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden">
         <!-- 固定最大高度的内滚动容器：翻页只滚表格区，页面上方（筛选栏）和下方（分页条）位置保持不变，避免整页抖动 -->
-        <!-- overflow-y-scroll 常驻滚动条：短页时不因滚动条消失而把表格拉宽 -->
-        <div id="siteTableWrap" class="max-h-[62vh] overflow-y-scroll">
+        <!-- overflow-x-hidden：操作按钮被滚动条挤出的横向溢出直接裁掉，绝不出现底部滚动条；overflow-y-auto 配细滚动条，不再常驻 -->
+        <div id="siteTableWrap" class="thin-scroll max-h-[62vh] overflow-y-auto overflow-x-hidden">
           <table class="w-full text-sm table-fixed">
             <thead class="sticky top-0 z-10"><tr class="text-left text-xs text-slate-400 border-b border-gray-100 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/95">
-              <th class="px-5 py-3 font-medium w-[36%]">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell w-[14%]">分类</th>
-              <th class="px-3 py-3 font-medium hidden lg:table-cell w-[28%]">URL</th><th class="px-3 py-3 font-medium w-[11%]">状态</th>
-              <th class="px-5 py-3 font-medium text-right w-[11%]">操作</th>
+              <th class="px-5 py-3 font-medium">站点</th><th class="px-3 py-3 font-medium hidden md:table-cell w-[14%]">分类</th>
+              <th class="px-3 py-3 font-medium hidden lg:table-cell w-[28%]">URL</th><th class="px-3 py-3 font-medium w-[80px]">状态</th>
+              <th class="px-3 py-3 font-medium text-right w-[140px]">操作</th>
             </tr></thead>
             <tbody id="siteTable"></tbody>
           </table>
@@ -626,7 +626,7 @@ function renderSites() {
           ${!s.is_pinned && !s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-slate-100 dark:bg-gray-800 text-slate-400">正常</span>' : ''}
         </span>
       </td>
-      <td class="px-5 py-2.5 text-right whitespace-nowrap">
+      <td class="px-3 py-2.5 text-right whitespace-nowrap">
         <button data-site-edit="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="编辑"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
         <button data-site-pin="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="置顶/取消置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></button>
         <button data-site-hide="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 cursor-pointer transition-colors" title="显示/隐藏"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i></button>
