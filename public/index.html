@@ -312,6 +312,13 @@ function setupScrollSpy() {
 }
 
 /* ================= 站内实时过滤 ================= */
+/* 注意：不能用 querySelectorAll('a[href]') 遍历卡片——栏目标题行的「更多」链接也在 section 里，
+   它没有 data-idx，取 c.sites[NaN] 会抛异常导致整个过滤中断（12卡+更多 改造后的回归坑）。
+   这里改为按关键词重新渲染网格：搜索时展示全部命中（不受 12 卡截断限制），清空后恢复原样。 */
+function siteMatches(s, q) {
+  if (!q) return true;
+  return [s.title, s.description, s.tags, s.url].some(v => String(v || '').toLowerCase().includes(q));
+}
 const searchInput = document.getElementById('searchInput');
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
@@ -319,16 +326,21 @@ searchInput.addEventListener('input', () => {
   NAV_DATA.forEach(c => {
     const sec = document.getElementById('cat-' + c.id);
     if (!sec) return;
-    let shown = 0;
-    sec.querySelectorAll('a[href]').forEach(a => {
-      const s = c.sites[+a.dataset.idx];
-      const hit = !q || [s.title, s.description, s.tags, s.url].some(v => String(v || '').toLowerCase().includes(q));
-      a.classList.toggle('hidden', !hit);
-      if (hit) shown++;
-    });
-    sec.classList.toggle('hidden', shown === 0);
-    total += shown;
+    const grid = sec.querySelector('div.grid');
+    const more = sec.querySelector('a[href^="/cat/"]');
+    if (q) {
+      const hits = c.sites.filter(s => siteMatches(s, q));
+      total += hits.length;
+      if (grid) grid.innerHTML = hits.map((s, i) => cardHTML(s, i)).join('');
+      if (more) more.classList.add('hidden');
+      sec.classList.toggle('hidden', !hits.length);
+    } else {
+      if (grid) grid.innerHTML = c.sites.slice(0, SITE_LIMIT).map((s, i) => cardHTML(s, i)).join('');
+      if (more) more.classList.remove('hidden');
+      sec.classList.remove('hidden');
+    }
   });
+  try { lucide.createIcons(); } catch { /* CDN 失败不影响过滤 */ }
   document.getElementById('emptyTip').classList.toggle('hidden', total > 0);
   document.getElementById('emptyTip').classList.toggle('flex', total === 0);
 });
