@@ -11,10 +11,30 @@ const settings = require('./settings');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /** 每个分类默认展示的站点数，超出的折叠进「更多」（与前端 public/index.html 保持一致） */
-const SITE_LIMIT = 20;
+const SITE_LIMIT = 12;
+
+/** 卡片标签最多展示几个，其余折叠成 +N（与前端 public/index.html 保持一致） */
+const TAG_LIMIT = 3;
+/** 单个标签展示的最大字符数，超出截断加省略号 */
+const TAG_MAXLEN = 10;
+const TAG_CHIP_CLASS = 'px-2 py-0.5 rounded-full text-[11px] bg-slate-50 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-100 dark:border-gray-700';
 
 const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
 const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
+
+/** 标签区 HTML：只展示前 TAG_LIMIT 个，其余合并为 +N（hover 看全部）；单标签过长也截断 */
+function tagsHTML(s) {
+  const all = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  if (!all.length) return '';
+  const shown = all.slice(0, TAG_LIMIT).map(t => ({
+    text: t.length > TAG_MAXLEN ? t.slice(0, TAG_MAXLEN) + '…' : t,
+    full: t,
+  }));
+  const rest = all.slice(TAG_LIMIT);
+  const chips = shown.map(t => `<span class="${TAG_CHIP_CLASS}"${t.full !== t.text ? ` title="${esc(t.full)}"` : ''}>${esc(t.text)}</span>`).join('');
+  const more = rest.length ? `<span class="${TAG_CHIP_CLASS} cursor-default" title="${esc(rest.join('、'))}">+${rest.length}</span>` : '';
+  return `<div class="mt-2.5 flex flex-wrap gap-1.5">${chips}${more}</div>`;
+}
 
 function getNavData() {
   const categories = db.prepare('SELECT id, name, icon FROM categories ORDER BY sort_order ASC, id ASC').all();
@@ -27,7 +47,6 @@ function getNavData() {
 
 /* 与前端 index.html 中的模板保持一致 */
 function cardHTML(s, i, extraClass = '') {
-  const tags = (s.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   return `
   <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
      class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
@@ -42,7 +61,7 @@ function cardHTML(s, i, extraClass = '') {
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(s.description || s.url)}</div>
       </div>
     </div>
-    ${tags.length ? `<div class="mt-2.5 flex flex-wrap gap-1.5">${tags.map(t => `<span class="px-2 py-0.5 rounded-full text-[11px] bg-slate-50 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-100 dark:border-gray-700">${esc(t)}</span>`).join('')}</div>` : ''}
+    ${tagsHTML(s)}
   </a>`;
 }
 
