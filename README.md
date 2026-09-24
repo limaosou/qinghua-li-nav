@@ -18,7 +18,7 @@
 - 演示域名：[www.liqinghua.com](https://www.liqinghua.com)
 - LICENSE 版权方：`青花狸`
 
-开源后这些字样会随仓库一并公开。
+本仓库已开源，上述字样随仓库一并公开。
 
 ## 功能一览
 
