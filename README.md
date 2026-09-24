@@ -279,7 +279,7 @@ docker run -d --name navhub -p 3000:3000 \
 
 ## 安全建议
 
-1. 生产环境务必用 `npm run hash-password` 生成 `ADMIN_PASSWORD_HASH`，删掉 `.env` 中的明文 `ADMIN_PASSWORD`。
+1. 生产环境务必用 `npm run hash-password` 生成 `ADMIN_PASSWORD_HASH`，删掉 `.env` 中的明文 `ADMIN_PASSWORD`。上线后也可在后台「站点配置 → 修改管理员密码」中直接改密（实时生效，并自动写回 `.env`），无需登录服务器。
 2. `TOKEN_SECRET` 用长随机串：`openssl rand -hex 32`。
 3. 建议套 Nginx + HTTPS，并可在 Nginx 层限制 `/admin` 与 `/api/admin` 的访问 IP。
 4. 仓库公开后，建议定期更换管理员口令与 `TOKEN_SECRET`。
