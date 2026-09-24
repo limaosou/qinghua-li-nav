@@ -1,6 +1,12 @@
 # NavHub · 响应式网址导航系统
 
+> 🔗 **在线演示**：[www.liqinghua.com](https://www.liqinghua.com) —— 本项目驱动的真实站点，已收录 230+ 常用网址
+
 前台展示 + 后台管理，Node.js + Express + SQLite，开箱即部署。
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/) [![Deploy with Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/limaosou/qinghua-nav) [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/limaosou/qinghua-nav)
+
+> 一键部署按钮在仓库公开后生效；也可直接用下方「部署指南」的 Docker / 宝塔 / PM2 方式。
 
 ## 功能一览
 
@@ -13,6 +19,14 @@
 | 深色 / 浅色主题切换（记忆偏好） | 一键导出 JSON 备份 |
 | 移动端 / PC 完全响应式 | 简单防暴力破解（10 分钟 5 次） |
 
+前台还内置访客投稿：右上角「推荐好站」→ 提交后进审核队列 → 站长通过即在导航展示。
+
+## 截图
+
+| 前台首页 | 后台登录 |
+|---|---|
+| ![前台首页](docs/screenshots/home.png) | ![后台登录](docs/screenshots/admin.png) |
+
 ## 目录结构
 
 ```
@@ -21,6 +35,8 @@ nav-system/
 │   ├── index.js          # Express 入口
 │   ├── db.js             # SQLite 初始化（建表 + 首次示例数据）
 │   ├── auth.js           # scrypt 密码校验 + HMAC Token 鉴权
+│   ├── netguard.js       # SSRF 出站闸门（禁内网/云元数据，重定向逐跳校验）
+│   ├── settings.js       # 站点配置读写
 │   ├── env.js            # 零依赖 .env 加载器
 │   └── routes/
 │       ├── public.js     # GET /api/public/nav
@@ -29,7 +45,9 @@ nav-system/
 │   ├── index.html        # 前台展示页
 │   └── admin.html        # 后台管理页
 ├── scripts/hash-password.js  # 生成密码哈希
-├── data/                 # SQLite 数据文件（自动创建，需备份）
+├── data/                 # SQLite 数据文件（自动创建，需备份，不入库）
+├── docs/screenshots/     # README 截图
+├── .github/              # Issue/PR 模板、CONTRIBUTING、SECURITY
 ├── .env.example          # 环境变量模板
 ├── Dockerfile / docker-compose.yml
 └── ecosystem.config.js   # PM2 配置
@@ -144,6 +162,7 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/public/nav` | 前台公开分类与网址（不含隐藏） |
+| POST | `/api/public/submit` | 访客投稿（进待审核队列，每 IP 每小时限 5 条） |
 | POST | `/api/admin/login` | `{username, password}` → `{token}` |
 | GET | `/api/admin/data` | 全量数据（需 Token） |
 | POST | `/api/admin/categories` | `action: create/update/delete/reorder` |
@@ -251,3 +270,16 @@ docker run -d --name navhub -p 3000:3000 \
 1. 生产环境务必用 `npm run hash-password` 生成 `ADMIN_PASSWORD_HASH`，删掉 `.env` 中的明文 `ADMIN_PASSWORD`。
 2. `TOKEN_SECRET` 用长随机串：`openssl rand -hex 32`。
 3. 建议套 Nginx + HTTPS，并可在 Nginx 层限制 `/admin` 与 `/api/admin` 的访问 IP。
+4. 仓库公开后，建议定期更换管理员口令与 `TOKEN_SECRET`。
+
+## 参与贡献
+
+- 🌟 **推荐好站**：前台右上角「推荐好站」提交网址，审核通过即展示
+- 🐛 **反馈问题**：提交 [Bug 反馈](.github/ISSUE_TEMPLATE/bug_report.yml)
+- 💡 **功能建议**：提交 [功能建议](.github/ISSUE_TEMPLATE/feature_request.yml)
+- 🔧 **代码贡献**：见 [CONTRIBUTING.md](.github/CONTRIBUTING.md)
+- 🔒 **安全漏洞**：见 [SECURITY.md](.github/SECURITY.md)，请勿公开提交 Issue
+
+## License
+
+[MIT](./LICENSE)

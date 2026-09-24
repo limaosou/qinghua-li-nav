@@ -1,0 +1,26 @@
+name: 功能建议
+description: 想要的新功能或改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: 你的需求
+      description: 期望做什么、解决什么实际问题
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 建议方案
+      description: 你设想的实现方式（可选）
+    validations:
+      required: false
+  - type: textarea
+    id: refs
+    attributes:
+      label: 参考
+      description: 相关链接、截图或竞品参考（可选）
+    validations:
+      required: false
