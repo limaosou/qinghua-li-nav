@@ -4,7 +4,7 @@
 
 前台展示 + 后台管理，Node.js + Express + SQLite，开箱即部署。
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/) [![Deploy with Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/limaosou/qinghua-nav) [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/limaosou/qinghua-nav)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/) [![Deploy with Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/limaosou/qinghua-li-nav) [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/limaosou/qinghua-li-nav)
 
 > 一键部署按钮在仓库公开后生效；也可直接用下方「部署指南」的 Docker / 宝塔 / PM2 方式。
 
@@ -14,7 +14,7 @@
 
 仓库 / 站点里相关字样的对应关系：
 
-- GitHub 仓库：`limaosou/qinghua-nav`
+- GitHub 仓库：`limaosou/qinghua-li-nav`
 - 演示域名：[www.liqinghua.com](https://www.liqinghua.com)
 - LICENSE 版权方：`青花狸`
 
@@ -100,7 +100,7 @@ npm start
 ## 2. 拉代码
 
 ```powershell
-git clone https://github.com/limaosou/qinghua-nav.git nav-system
+git clone https://github.com/limaosou/qinghua-li-nav.git nav-system
 cd nav-system
 ```
 
@@ -138,7 +138,7 @@ notepad .env                   # 填 ADMIN_USERNAME / ADMIN_PASSWORD_HASH / TOKE
 
 ```powershell
 # 在 Windows 上执行（需能 ssh 到服务器）
-scp root@你的服务器:/www/wwwroot/qinghua-nav/data/nav.db .\data\nav.db
+scp root@你的服务器:/www/wwwroot/qinghua-li-nav/data/nav.db .\data\nav.db
 ```
 
 没有服务器权限也行：后台「数据备份」页导出 JSON，本地跑起来后再手动录入或写脚本导入。
@@ -163,7 +163,7 @@ git push
 然后到服务器上更新：
 
 ```bash
-cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
+cd /www/wwwroot/qinghua-li-nav && git pull && pm2 restart navhub
 ```
 
 ⚠️ **不要两台机器同时改同一个文件**：未 pull 就改会覆盖对方的提交，已踩过坑。
@@ -190,18 +190,18 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 
 ## 方式一：宝塔面板（BT-Panel）
 
-1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/qinghua-nav`；或终端 git 拉取：
+1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/qinghua-li-nav`；或终端 git 拉取：
    ```bash
    cd /www/wwwroot
-   git clone git@github.com:<你的用户名>/qinghua-nav.git qinghua-nav
-   cd qinghua-nav
+   git clone git@github.com:<你的用户名>/qinghua-li-nav.git qinghua-li-nav
+   cd qinghua-li-nav
    ```
 2. **安装 PM2 管理器**：宝塔「软件商店」搜索安装 `PM2管理器`（自带 Node 环境，建议 Node ≥ 18）。
 3. **安装依赖**：
    - 若用 Node 项目管理器：添加项目 → 启动文件选 `server/index.js`，运行目录为项目根，端口 `3000`，自动执行 `npm install`。
    - 或终端方式：
      ```bash
-     cd /www/wwwroot/qinghua-nav
+     cd /www/wwwroot/qinghua-li-nav
      npm install --omit=dev
      ```
 4. **配置环境变量**：
@@ -226,7 +226,7 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 7. **首次验证**：访问 `https://你的域名` 看前台，`/admin` 登录后台（用第 4 步配置的账号），进「站点配置」改公告/导航链接等。
 8. **备份**：宝塔「计划任务」加一条每日 Shell：
    ```bash
-   cp -r /www/wwwroot/qinghua-nav/data /www/backup/qinghua-nav-$(date +\%F)
+   cp -r /www/wwwroot/qinghua-li-nav/data /www/backup/qinghua-li-nav-$(date +\%F)
    ```
    `data/` 里是 SQLite 数据库（含分类/网址/投稿/站点配置），拷走即全量备份。
 
