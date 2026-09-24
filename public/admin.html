@@ -293,6 +293,21 @@ tailwind.config = {
         <textarea id="set_robots_txt" rows="6" class="w-full mt-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono outline-none focus:border-indigo-400 transition resize-y"></textarea>
       </div>
 
+      <!-- 修改管理员密码 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="key-round" class="w-4 h-4 text-indigo-500"></i>修改管理员密码</h3>
+        <p class="text-xs text-slate-400 mb-3">修改后立即生效，并写入服务器 .env（重启后依然有效）。</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="text-xs text-slate-400 space-y-1">当前密码<input id="pwCurrent" type="password" autocomplete="current-password" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <div></div>
+          <label class="text-xs text-slate-400 space-y-1">新密码（至少 6 位）<input id="pwNew" type="password" autocomplete="new-password" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">确认新密码<input id="pwConfirm" type="password" autocomplete="new-password" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+        </div>
+        <div class="flex justify-end mt-3">
+          <button id="changePwBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">修改密码</button>
+        </div>
+      </div>
+
       <div class="flex justify-end">
         <button id="saveSettingsBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">保存站点配置</button>
       </div>
@@ -1105,6 +1120,21 @@ $('saveSettingsBtn').addEventListener('click', async () => {
   try {
     await api('/api/admin/settings', body);
     toast('站点配置已保存，前台刷新即可生效');
+  } catch (e) { toast(e.message, false); }
+});
+
+/* ============ 修改管理员密码 ============ */
+$('changePwBtn').addEventListener('click', async () => {
+  const cur = $('pwCurrent').value;
+  const nw = $('pwNew').value;
+  const cf = $('pwConfirm').value;
+  if (!cur || !nw) return toast('当前密码和新密码都不能为空', false);
+  if (nw.length < 6) return toast('新密码至少 6 位', false);
+  if (nw !== cf) return toast('两次输入的新密码不一致', false);
+  try {
+    await api('/api/admin/change-password', { currentPassword: cur, newPassword: nw });
+    $('pwCurrent').value = $('pwNew').value = $('pwConfirm').value = '';
+    toast('密码已修改，下次登录请使用新密码');
   } catch (e) { toast(e.message, false); }
 });
 

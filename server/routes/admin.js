@@ -9,6 +9,9 @@
  *  GET  /api/admin/export         导出 JSON 备份
  */
 const express = require('express');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const db = require('../db');
 const settings = require('../settings');
 const { verifyPassword, signToken, requireAuth } = require('../auth');
@@ -32,6 +35,35 @@ function checkCreds(username, password) {
   if (process.env.ADMIN_PASSWORD_HASH) return verifyPassword(password, process.env.ADMIN_PASSWORD_HASH);
   if (process.env.ADMIN_PASSWORD) return password === process.env.ADMIN_PASSWORD;
   return password === 'admin123'; // ⚠️ 未配置密码时的初始口令，上线前务必修改
+}
+
+/** 生成 scrypt 哈希（格式 scrypt$saltHex$hashHex），与 scripts/hash-password.js 一致 */
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(pw, salt, 64);
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
+}
+
+/** 校验「当前密码」是否匹配（与 checkCreds 的密码判定逻辑一致） */
+function verifyCurrentPassword(password) {
+  if (process.env.ADMIN_PASSWORD_HASH) return verifyPassword(password, process.env.ADMIN_PASSWORD_HASH);
+  if (process.env.ADMIN_PASSWORD) return password === process.env.ADMIN_PASSWORD;
+  return password === 'admin123';
+}
+
+/** 把新哈希持久化到 .env（覆盖 ADMIN_PASSWORD_HASH，并禁用明文 ADMIN_PASSWORD），重启后仍有效 */
+function persistPasswordHash(hash) {
+  const file = path.resolve(process.cwd(), '.env');
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split(/\r?\n/) : [];
+  const out = [];
+  let replaced = false;
+  for (const line of lines) {
+    if (/^\s*ADMIN_PASSWORD_HASH\s*=/.test(line)) { out.push(`ADMIN_PASSWORD_HASH=${hash}`); replaced = true; continue; }
+    if (/^\s*ADMIN_PASSWORD\s*=/.test(line)) { out.push(`# ${line.trim()}（明文密码已禁用，已迁移到 ADMIN_PASSWORD_HASH）`); continue; }
+    out.push(line);
+  }
+  if (!replaced) out.push(`ADMIN_PASSWORD_HASH=${hash}`);
+  fs.writeFileSync(file, out.join('\n'), { mode: 0o600 });
 }
 
 router.post('/login', (req, res) => {
@@ -604,6 +636,23 @@ router.post('/settings', (req, res) => {
     res.json({ code: 0, data: { saved } });
   } catch (e) {
     res.status(400).json({ code: 1, message: e.message });
+  }
+});
+
+// ---------- 修改管理员密码 ----------
+router.post('/change-password', (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ code: 1, message: '当前密码和新密码都不能为空' });
+  if (String(newPassword).length < 6) return res.status(400).json({ code: 1, message: '新密码至少 6 位' });
+  if (!verifyCurrentPassword(currentPassword)) return res.status(401).json({ code: 1, message: '当前密码不正确' });
+  try {
+    const hash = hashPassword(newPassword);
+    process.env.ADMIN_PASSWORD_HASH = hash; // 立即生效（登录实时读取 process.env）
+    persistPasswordHash(hash);             // 持久化到 .env，重启后仍有效
+    console.log('[auth] 管理员密码已修改');
+    res.json({ code: 0, message: '密码已修改，下次登录请使用新密码' });
+  } catch (e) {
+    res.status(500).json({ code: 1, message: '写入失败：' + e.message });
   }
 });
 
