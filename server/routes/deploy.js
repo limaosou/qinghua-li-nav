@@ -8,7 +8,7 @@
  * 未设置 WEBHOOK_SECRET 时本端点始终返回 403（默认关闭，零风险）。
  */
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const path = require('path');
 const express = require('express');
 
@@ -43,6 +43,15 @@ function doDeploy(res) {
         execSync('pm2 restart navhub', { timeout: 15000, stdio: 'ignore' });
       } catch {
         process.exit(0); // 未用 pm2 时直接退出，交给外部进程管理器拉起
+      }
+      // 部署后主动推送搜索引擎（需 .env 配 BAIDU_ZZ_TOKEN / BING_INDEXNOW_KEY）
+      if (process.env.BAIDU_ZZ_TOKEN || process.env.BING_INDEXNOW_KEY) {
+        setTimeout(() => {
+          try {
+            spawn('node', [path.join(REPO_ROOT, 'scripts', 'submit-index.js')],
+              { detached: true, stdio: 'ignore' }).unref();
+          } catch { /* 推送失败不影响部署 */ }
+        }, 3000); // 等服务起来再抓 sitemap
       }
     }, 300);
   } catch (e) {

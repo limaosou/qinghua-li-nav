@@ -323,6 +323,44 @@ WEBHOOK_SECRET=<一段随机长字符串>
 
 > 部署是否生效，可 `pm2 logs navhub` 看重启记录，或直接访问 `/about` 等新增页面验证。
 
+## 搜索引擎主动提交（加速收录）
+
+与其干等搜索引擎来爬，不如主动把链接递过去。脚本 `scripts/submit-index.js` 会：
+
+- 抓取线上 `SITE_URL/sitemap.xml`，解析全部 `<loc>` 链接；
+- **百度**（国内主战场，收录最快）：主动推送接口 + sitemap 提交接口，需 `BAIDU_ZZ_TOKEN`（在百度搜索资源平台 ziyuan.baidu.com → 普通收录 → 接口调用里拿）；
+- **必应 / Bing**（同时喂给 ChatGPT、Copilot 等）：走 IndexNow 协议，需 `BING_INDEXNOW_KEY`；脚本会自动在 `public/<key>.txt` 生成校验文件。
+
+### 配置（.env）
+
+```bash
+SITE_URL=https://www.liqinghua.com      # 站点地址（sitemap 来源）
+BAIDU_ZZ_TOKEN=xxxx                      # 百度主动推送 token（选填）
+BING_INDEXNOW_KEY=yyyy                   # IndexNow key（选填，自动生成校验文件）
+```
+
+两个 token 都不填时脚本直接退出（exit 2），不报错。
+
+### 用法
+
+```bash
+node scripts/submit-index.js
+# 或
+npm run submit
+# 报告写入 data/submit-report.json
+```
+
+### 自动化（推荐）
+
+- **配合自动部署**：每次 `git push` 触发重启后，若 `.env` 配了上述 token，部署端点会自动再跑一次本脚本——实现"push 即报搜索引擎"。
+- **独立定时**：crontab 每天 04:00 跑（与部署解耦，更稳）：
+
+```bash
+0 4 * * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
+```
+
+> 另建议手动去百度 / 必应 / Google 站长平台各提交一次 sitemap.xml（一次性），与脚本的主动推送互补。llms.txt 已就位，AI 助手也有概率直接引用本站。
+
 ## 数据备份
 
 - **文件级**：直接备份 `data/` 目录（`nav.db` + WAL 文件），恢复时放回原处重启即可。
