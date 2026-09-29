@@ -79,6 +79,7 @@ app.get('/sitemap.xml', (req, res) => {
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>${base}/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
 ${catUrls}
 </urlset>`);
 });
