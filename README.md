@@ -57,12 +57,17 @@ nav-system/
 │   ├── settings.js       # 站点配置读写
 │   ├── env.js            # 零依赖 .env 加载器
 │   └── routes/
-│       ├── public.js     # GET /api/public/nav
-│       └── admin.js      # 登录 / 分类 / 网址 / favicon / 导出
+│       ├── public.js     # GET /api/public/nav、POST /api/public/submit、POST /api/public/click、GET /api/public/popular
+│       ├── admin.js      # 登录 / 分类 / 网址 / favicon / 导出 / 链接体检 / 投稿审核
+│       └── deploy.js     # POST /api/deploy（GitHub Webhook 自动部署，需 WEBHOOK_SECRET）
 ├── public/
-│   ├── index.html        # 前台展示页
+│   ├── index.html        # 前台展示页（收藏夹 / 分类筛选 / PWA / 点击上报）
+│   ├── cat.html          # 分类详情页
+│   ├── about.html        # 品牌故事 / 收录规范页
+│   ├── manifest.webmanifest  # PWA 清单
 │   └── admin.html        # 后台管理页
 ├── scripts/hash-password.js  # 生成密码哈希
+├── scripts/monthly-linkcheck.js  # 每月死链扫描（登录后台触发体检，产出报告）
 ├── data/                 # SQLite 数据文件（自动创建，需备份，不入库）
 ├── docs/screenshots/     # README 截图
 ├── .github/              # Issue/PR 模板、CONTRIBUTING、SECURITY
@@ -172,6 +177,8 @@ git push
 cd /www/wwwroot/qinghua-li-nav && git pull && pm2 restart navhub
 ```
 
+> 嫌每次 SSH 太麻烦？配置「自动部署 Webhook」后，`git push` 会自动上线——见下方「部署指南 → 自动部署（GitHub Webhook）」。
+
 ⚠️ **不要两台机器同时改同一个文件**：未 pull 就改会覆盖对方的提交，已踩过坑。
 `node_modules/` 也别跨机器复制（原生模块与平台绑定），每台机器各自 `npm install`。
 
@@ -181,6 +188,9 @@ cd /www/wwwroot/qinghua-li-nav && git pull && pm2 restart navhub
 |---|---|---|
 | GET | `/api/public/nav` | 前台公开分类与网址（不含隐藏） |
 | POST | `/api/public/submit` | 访客投稿（进待审核队列，每 IP 每小时限 5 条） |
+| POST | `/api/public/click` | 卡片点击上报（按 IP+站点 1.5s 限频，静默自增 `clicks`） |
+| GET | `/api/public/popular` | 热门站点（按 `clicks` 降序，用于首页「大家都在用」） |
+| POST | `/api/deploy` | 自动部署 Webhook（GitHub push 触发，需 `WEBHOOK_SECRET`），手动 `GET /api/deploy?token=SECRET` |
 | POST | `/api/admin/login` | `{username, password}` → `{token}` |
 | GET | `/api/admin/data` | 全量数据（需 Token） |
 | POST | `/api/admin/categories` | `action: create/update/delete/reorder` |
@@ -277,6 +287,41 @@ docker run -d --name navhub -p 3000:3000 \
 ```
 
 更新版本：`git pull && docker compose up -d --build`
+
+## 自动部署（GitHub Webhook）
+
+配好后，**每次 `git push` 到 `main` 即自动 `git pull` + 重启**，不再需要 SSH 上服务器手动更新。
+
+### 1. 服务端：设置密钥
+
+在服务器 `.env` 里加一行（值用一段长随机串，例如 `openssl rand -hex 32`）：
+
+```bash
+WEBHOOK_SECRET=<一段随机长字符串>
+```
+
+不设（默认空）则端点自动关闭、返回 403，零风险。
+
+### 2. GitHub：添加 Webhook
+
+仓库 `Settings → Webhooks → Add webhook`：
+
+- **Payload URL**：`https://你的域名/api/deploy`
+- **Content type**：`application/json`
+- **Secret**：填和第 1 步相同的 `WEBHOOK_SECRET`
+- **Events**：只勾 **Push**（或选 "Let me select individual events" → 仅 Push）
+- **Active**：✓
+
+保存后 GitHub 会发一条 `ping` 事件验证；站点返回 `{"code":0,"message":"pong"}` 即连通。
+
+### 3. 触发逻辑
+
+- 仅 `main` 分支的 `push` 会部署；其他分支或非 push 事件静默跳过。
+- 校验用 `x-hub-signature-256`（HMAC-SHA256），签名不符返回 401。
+- 部署动作：`git pull --ff-only`（本地有未提交改动会失败、不重启，安全）；成功后由 PM2 重启加载新代码。
+- 手动兜底（临时用）：`curl "https://你的域名/api/deploy?token=WEBHOOK_SECRET"`（token 会写入服务器访问日志，不建议长期使用）。
+
+> 部署是否生效，可 `pm2 logs navhub` 看重启记录，或直接访问 `/about` 等新增页面验证。
 
 ## 数据备份
 

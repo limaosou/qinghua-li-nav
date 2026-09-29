@@ -10,6 +10,7 @@ require('./db'); // 初始化数据库（建表 + 首次示例数据）
 
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
+const deployRoutes = require('./routes/deploy');
 const settings = require('./settings');
 const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData } = require('./render');
 
@@ -18,6 +19,9 @@ app.disable('x-powered-by');
 // 只信任本地反向代理（宝塔 Nginx）传来的 X-Forwarded-For，让 req.ip 拿到真实客户端 IP；
 // 外部直连伪造 XFF 无效，从而保障登录限流与日志按真实来源统计
 app.set('trust proxy', 'loopback');
+// 自动部署 webhook：必须放在 express.json 之前，以拿到原始 body 做 HMAC 校验
+app.use('/api/deploy', express.raw({ type: '*/*', limit: '2mb' }), deployRoutes);
+
 app.use(express.json({ limit: '2mb' }));
 
 // 基础安全响应头（站点用了 CDN 版 Tailwind 与内联脚本，故不启用严格 CSP，仅补无副作用的那几个）
