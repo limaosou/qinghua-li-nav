@@ -11,7 +11,7 @@ require('./db'); // 初始化数据库（建表 + 首次示例数据）
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const settings = require('./settings');
-const { renderNavPage, renderCategoryPage, renderLLMsTxt, getNavData } = require('./render');
+const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
@@ -55,6 +55,12 @@ app.get('/robots.txt', (req, res) => {
 app.get('/llms.txt', (req, res) => {
   res.set('Content-Type', 'text/plain; charset=utf-8');
   res.send(renderLLMsTxt(req));
+});
+
+// 品牌故事 / 收录规范页
+app.get('/about', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(renderAboutPage(req));
 });
 
 // sitemap.xml：首页 + 各分类详情页

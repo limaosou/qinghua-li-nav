@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sites (
   sort_order   INTEGER DEFAULT 0,
   is_pinned    INTEGER DEFAULT 0,
   is_hidden    INTEGER DEFAULT 0,
+  clicks       INTEGER DEFAULT 0,
   created_at   TEXT    DEFAULT (datetime('now','localtime'))
 );
 
@@ -56,6 +57,15 @@ CREATE TABLE IF NOT EXISTS submissions (
   reviewed_at TEXT    DEFAULT ''
 );
 `);
+
+// ---------- 兼容旧库：补充 clicks 列（点击热度统计）----------
+try {
+  const cols = db.prepare('PRAGMA table_info(sites)').all().map((c) => c.name);
+  if (!cols.includes('clicks')) {
+    db.exec('ALTER TABLE sites ADD COLUMN clicks INTEGER DEFAULT 0');
+    console.log('✓ 已为 sites 表补充 clicks 列');
+  }
+} catch { /* 忽略 */ }
 
 // ---------- 首次启动写入示例数据 ----------
 function seedIfEmpty() {

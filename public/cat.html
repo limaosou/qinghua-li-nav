@@ -14,6 +14,10 @@
 <meta property="og:description" content="<!--SSR_CAT_DESCRIPTION-->">
 <link rel="canonical" href="<!--SSR_CANONICAL-->">
 <meta property="og:url" content="<!--SSR_CANONICAL-->">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="青花狸导航">
 <!--SSR_JSONLD-->
 <!--SSR_CUSTOM_HEAD-->
 <script>
@@ -62,6 +66,10 @@ tailwind.config = {
       <!--SSR_BRAND-->
     </a>
     <div class="flex items-center gap-2">
+      <button id="favBtn" title="我的收藏" class="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-amber-500 transition-colors cursor-pointer">
+        <i data-lucide="star" class="w-4 h-4"></i>
+        <span id="favCount" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none flex items-center justify-center">0</span>
+      </button>
       <button id="themeBtn" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" aria-label="切换深浅色">
         <i data-lucide="moon-star" class="w-4 h-4"></i>
       </button>
@@ -101,6 +109,7 @@ tailwind.config = {
 
 <footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
   <!--SSR_FOOTER-->
+  <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
 </footer>
 
 <script>
@@ -111,6 +120,104 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
 });
 if (window.lucide) lucide.createIcons();
+
+/* ================= 收藏夹（localStorage） ================= */
+const FAV_KEY = 'navhub_favs';
+const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+const saveFavs = a => { try { localStorage.setItem(FAV_KEY, JSON.stringify(a.slice(0, 200))); } catch {} };
+const isFav = id => getFavs().some(f => String(f.id) === String(id));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+let favMode = false;
+
+function favSiteFromCard(a) {
+  return {
+    id: a.dataset.id,
+    url: a.getAttribute('href'),
+    title: a.querySelector('.font-medium')?.textContent?.trim() || '',
+    icon: a.querySelector('img')?.getAttribute('src') || '',
+    description: a.querySelector('.text-xs')?.textContent?.trim() || '',
+    category_id: Number(a.closest('section[id^="cat-"]')?.id?.replace('cat-', '') || '0') || 0,
+  };
+}
+function toggleFav(a) {
+  const site = favSiteFromCard(a);
+  const favs = getFavs();
+  const i = favs.findIndex(f => String(f.id) === String(site.id));
+  if (i >= 0) favs.splice(i, 1); else favs.unshift(site);
+  saveFavs(favs);
+  refreshFavUI();
+}
+function refreshFavUI() {
+  const favs = getFavs();
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    const btn = a.querySelector('.fav-btn'); if (!btn) return;
+    const on = isFav(a.dataset.id);
+    btn.textContent = on ? '★' : '☆';
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none cursor-pointer ' +
+      (on ? 'text-amber-400 hover:text-amber-500' : 'text-slate-300 hover:text-amber-400');
+  });
+  const cnt = document.getElementById('favCount');
+  if (cnt) { cnt.textContent = favs.length; cnt.classList.toggle('hidden', favs.length === 0); }
+  applyFavFilter();
+}
+function attachFavs() {
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    if (a.querySelector('.fav-btn')) return;
+    const btn = document.createElement('button');
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', '收藏');
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none text-slate-300 hover:text-amber-400 cursor-pointer';
+    btn.textContent = '☆';
+    btn.style.top = '0.625rem';
+    btn.style.right = a.querySelector('[title="置顶"]') ? '2.25rem' : '0.625rem';
+    a.appendChild(btn);
+  });
+  refreshFavUI();
+}
+function applyFavFilter() {
+  const grid = document.querySelector('main .grid');
+  if (!grid) return;
+  let shown = 0;
+  grid.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    const on = !favMode || isFav(a.dataset.id);
+    a.classList.toggle('hidden', !on);
+    if (on) shown++;
+  });
+  const tip = document.getElementById('favEmptyTip');
+  if (favMode && shown === 0) {
+    if (!tip) { const d = document.createElement('div'); d.id = 'favEmptyTip'; d.className = 'col-span-full text-center text-slate-400 dark:text-slate-500 py-16'; d.innerHTML = '这个分类下还没有收藏，点卡片右上角的星标收藏好站'; grid.after(d); }
+  } else if (tip) tip.remove();
+}
+
+document.getElementById('favBtn').addEventListener('click', () => {
+  favMode = !favMode;
+  document.getElementById('favBtn').classList.toggle('text-amber-500', favMode);
+  applyFavFilter();
+});
+
+document.addEventListener('click', e => {
+  const fb = e.target.closest('.fav-btn');
+  if (!fb) return;
+  e.preventDefault(); e.stopPropagation();
+  const a = fb.closest('a.card-hover');
+  if (a) toggleFav(a);
+}, true);
+
+/* ================= 点击热度上报 ================= */
+document.addEventListener('click', e => {
+  const a = e.target.closest('a.card-hover');
+  if (!a || e.target.closest('.fav-btn')) return;
+  const id = a.dataset.id;
+  if (id) fetch('/api/public/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(id) }), keepalive: true }).catch(() => {});
+});
+
+/* ================= PWA 注册 ================= */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
+
+attachFavs();
 </script>
 </body>
 </html>

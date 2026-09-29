@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!--SSR_TITLE--></title>
+<meta name="description" content="<!--SSR_DESCRIPTION-->">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#4F46E5">
+<!--SSR_FAVICON-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<!--SSR_SITE_NAME-->">
+<meta property="og:title" content="<!--SSR_TITLE-->">
+<meta property="og:description" content="<!--SSR_DESCRIPTION-->">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="青花狸导航">
+<!--SSR_CUSTOM_HEAD-->
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } } };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .bg-deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg-deco::before, .bg-deco::after { content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .16; }
+  .bg-deco::before { width: 480px; height: 480px; top: -160px; left: -120px; background: radial-gradient(circle, #6366f1, transparent 70%); }
+  .bg-deco::after  { width: 520px; height: 520px; top: -120px; right: -160px; background: radial-gradient(circle, #0ea5e9, transparent 70%); }
+  .dark .bg-deco::before, .dark .bg-deco::after { opacity: .1; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body class="bg-[#F5F5F7] dark:bg-gray-950 text-slate-900 dark:text-slate-200 min-h-screen flex flex-col antialiased">
+<div class="bg-deco" aria-hidden="true"></div>
+
+<header class="sticky top-0 z-40 backdrop-blur-xl bg-white/75 dark:bg-gray-900/75 border-b border-gray-200/80 dark:border-gray-800">
+  <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5 font-bold text-lg tracking-tight cursor-pointer">
+      <!--SSR_BRAND-->
+    </a>
+    <div class="flex items-center gap-2">
+      <a href="/" class="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>返回导航
+      </a>
+      <button id="themeBtn" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-indigo-500 transition-colors cursor-pointer" aria-label="切换深浅色">
+        <i data-lucide="moon" class="w-[18px] h-[18px] hidden dark:block"></i>
+        <i data-lucide="sun" class="w-[18px] h-[18px] block dark:hidden"></i>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="flex-1 max-w-3xl w-full mx-auto px-4 py-10">
+  <p class="text-sm text-indigo-500 dark:text-indigo-400 font-medium mb-2">关于青花狸</p>
+  <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-5">一只蓝白小狸，替你收藏全网好站</h1>
+
+  <section class="prose-invert max-w-none space-y-5 text-[15px] leading-7 text-slate-600 dark:text-slate-300">
+    <p><b class="text-slate-900 dark:text-slate-100">青花狸导航</b> 是一个个人维护的中文网址导航站。我们不追求「大而全」地堆砌链接，而是像一只爱囤东西的小狸，把真正好用、常去的网站按主题分门别类收进来——常用、影视、资源、游戏、漫画、音乐、工具、学习、素材，九大类，随点随达。</p>
+
+    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 pt-4">收录规范（五条规矩）</h2>
+    <p>导航站最怕两件事：<b>死链</b>和<b>凑数</b>。为此我们定了五条规矩：</p>
+    <ul class="space-y-3">
+      <li class="flex gap-3"><i data-lucide="badge-check" class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5"></i><div><b class="text-slate-900 dark:text-slate-100">官方优先</b>：能找官网就不放镜像，能放一手源就不放转载页。</div></li>
+      <li class="flex gap-3"><i data-lucide="badge-check" class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5"></i><div><b class="text-slate-900 dark:text-slate-100">主题强相关</b>：音乐就是音乐站、工具就是工具站，跨栏凑数的不要。</div></li>
+      <li class="flex gap-3"><i data-lucide="badge-check" class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5"></i><div><b class="text-slate-900 dark:text-slate-100">全局去重</b>：同一站点不重复进多个栏目。</div></li>
+      <li class="flex gap-3"><i data-lucide="badge-check" class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5"></i><div><b class="text-slate-900 dark:text-slate-100">宁缺毋滥</b>：某品类正经站点就那么多，不够一百也不硬塞。</div></li>
+      <li class="flex gap-3"><i data-lucide="badge-check" class="w-5 h-5 shrink-0 text-indigo-500 mt-0.5"></i><div><b class="text-slate-900 dark:text-slate-100">定期体检</b>：后台「链接体检」会扫描全站可达性，失效站点及时处理，不放任变墓碑。</div></li>
+    </ul>
+
+    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 pt-4">站长私藏与大家都在用</h2>
+    <p>首页顶部「<b class="text-slate-900 dark:text-slate-100">青花狸精选</b>」是站长手动置顶的私藏好站；「<b class="text-slate-900 dark:text-slate-100">大家都在用</b>」按真实点击排序——都是你和点开它的人一起投票出来的。</p>
+
+    <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 pt-4">想推荐好站？</h2>
+    <p>回到导航首页，点右上角「<b class="text-slate-900 dark:text-slate-100">推荐好站</b>」填一下就好。投稿进审核队列，站长通过即展示——也请遵守上面的收录规矩，谢谢你的慧眼 🦝</p>
+
+    <div class="pt-2">
+      <a href="/" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">
+        <i data-lucide="compass" class="w-4 h-4"></i>去导航首页逛逛
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+  <!--SSR_FOOTER-->
+  <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
+</footer>
+
+<script>
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  root.classList.toggle('dark');
+  localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
+});
+if (window.lucide) lucide.createIcons();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
+</script>
+</body>
+</html>

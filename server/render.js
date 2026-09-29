@@ -48,7 +48,7 @@ function getNavData() {
 /* 与前端 index.html 中的模板保持一致 */
 function cardHTML(s, i, extraClass = '') {
   return `
-  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
+  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}" data-id="${esc(s.id ?? '')}"
      class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
@@ -93,6 +93,40 @@ function renderFragments(data) {
     </section>`).join('');
 
   return { catnav, catnavMobile, content };
+}
+
+/** 编辑精选条：汇集全站被「置顶」的站点（后台「置顶」即入选），最多 12 个 */
+function featuredHTML(data) {
+  const pinned = [];
+  for (const c of data) for (const s of c.sites) if (s.is_pinned) pinned.push(s);
+  if (!pinned.length) return '';
+  const cards = pinned.slice(0, 12).map((s, i) => cardHTML(s, i)).join('');
+  return `<section class="mb-10" aria-label="青花狸精选">
+    <div class="flex items-center gap-2.5 mb-4">
+      <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-100/60 dark:border-amber-500/20 flex items-center justify-center text-base">⭐</span>
+      <h2 class="text-lg font-bold tracking-tight">青花狸精选</h2>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300">站长私藏</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div>
+  </section>`;
+}
+
+/** 热门站点条：按点击降序取前 12（clicks>0 才显示），空则不渲染 */
+function popularHTML() {
+  const rows = db
+    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned
+              FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT 12`)
+    .all();
+  if (!rows.length) return '';
+  const cards = rows.map((s, i) => cardHTML(s, i)).join('');
+  return `<section class="mb-10" aria-label="热门站点">
+    <div class="flex items-center gap-2.5 mb-4">
+      <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-500/10 dark:to-pink-500/10 border border-rose-100/60 dark:border-rose-500/20 flex items-center justify-center text-base">🔥</span>
+      <h2 class="text-lg font-bold tracking-tight">大家都在用</h2>
+      <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300">按真实点击</span>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div>
+  </section>`;
 }
 
 let templateCache = null;
@@ -192,6 +226,8 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s))
     .replaceAll('<!--SSR_CATNAV-->', frag.catnav)
     .replaceAll('<!--SSR_CATNAV_MOBILE-->', frag.catnavMobile)
+    .replaceAll('<!--SSR_FEATURED-->', featuredHTML(data))
+    .replaceAll('<!--SSR_POPULAR-->', popularHTML())
     .replaceAll('<!--SSR_CONTENT-->', frag.content)
     .replaceAll('<!--SSR_DATA-->', `<script>window.__NAV__=${navJSON};window.__SETTINGS__=${settingsJSON};</script>`);
 }
@@ -274,4 +310,22 @@ function renderLLMsTxt(req) {
   return lines.join('\n');
 }
 
-module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, getNavData };
+/** 页面渲染器：/about 品牌故事 + 收录规范 */
+let aboutTemplateCache = null;
+function renderAboutPage(req) {
+  if (!aboutTemplateCache) {
+    aboutTemplateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'about.html'), 'utf8');
+  }
+  const s = settings.getSettings();
+  const base = baseUrl(req);
+  return aboutTemplateCache
+    .replaceAll('<!--SSR_TITLE-->', esc(`${s.site_name}导航 · 关于我们`))
+    .replaceAll('<!--SSR_DESCRIPTION-->', esc(s.site_description || '青花狸导航：一只蓝白小狸，替你收藏全网好站。'))
+    .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
+    .replaceAll('<!--SSR_FAVICON-->', buildFaviconHTML(s))
+    .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
+    .replaceAll('<!--SSR_BRAND-->', buildBrandHTML(s))
+    .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s));
+}
+
+module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData };

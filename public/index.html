@@ -16,6 +16,10 @@
 <meta property="og:description" content="<!--SSR_DESCRIPTION-->">
 <link rel="canonical" href="<!--SSR_CANONICAL-->">
 <meta property="og:url" content="<!--SSR_CANONICAL-->">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="青花狸导航">
 <!--SSR_JSONLD-->
 <!--SSR_CUSTOM_HEAD-->
 <script>
@@ -71,6 +75,10 @@ tailwind.config = {
     </a>
     <div class="flex items-center gap-1.5">
       <!--SSR_NAV_LINKS-->
+      <button id="favBtn" title="我的收藏" class="relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-amber-500 transition-colors duration-200 cursor-pointer">
+        <i data-lucide="star" class="w-[18px] h-[18px]"></i>
+        <span id="favCount" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none flex items-center justify-center">0</span>
+      </button>
       <button id="suggestBtn" title="推荐好站" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-colors duration-200 cursor-pointer">
         <i data-lucide="hand-heart" class="w-4 h-4"></i>推荐站点
       </button>
@@ -116,6 +124,11 @@ tailwind.config = {
 
   <!-- ===== 移动端分类横滑 ===== -->
   <nav id="catNavMobile" class="lg:hidden mb-6 flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4"><!--SSR_CATNAV_MOBILE--></nav>
+
+  <!-- 编辑精选 / 热门 / 分类筛选（全宽，位于分类网格之上） -->
+  <div id="featuredWrap" class="min-w-0"><!--SSR_FEATURED--></div>
+  <div id="popularWrap" class="min-w-0"><!--SSR_POPULAR--></div>
+  <div id="catFilter" class="hidden lg:flex flex-wrap gap-2 mb-2"></div>
 
   <div class="grid lg:grid-cols-[220px,1fr] gap-8">
     <!-- 侧栏分类 -->
@@ -163,6 +176,7 @@ tailwind.config = {
 
 <footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
   <!--SSR_FOOTER-->
+  <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
 </footer>
 
 <!--SSR_DATA-->
@@ -238,7 +252,7 @@ function tagsHTML(s) {
 
 function cardHTML(s, i, extraClass = '') {
   return `
-  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}"
+  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}" data-id="${esc(s.id ?? '')}"
      class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
@@ -288,6 +302,8 @@ function render() {
 
   lucide.createIcons();
   setupScrollSpy();
+  if (typeof renderCatFilter === 'function') renderCatFilter();
+  if (typeof attachFavs === 'function') attachFavs();
 }
 
 /* ================= 滚动高亮 ================= */
@@ -322,6 +338,10 @@ function siteMatches(s, q) {
 const searchInput = document.getElementById('searchInput');
 searchInput.addEventListener('input', () => {
   const q = searchInput.value.trim().toLowerCase();
+  // 搜索时隐藏精选 / 热门 / 分类筛选，清空后恢复
+  document.getElementById('featuredWrap').classList.toggle('hidden', !!q);
+  document.getElementById('popularWrap').classList.toggle('hidden', !!q);
+  document.getElementById('catFilter').classList.toggle('hidden', !!q || favMode);
   let total = 0;
   NAV_DATA.forEach(c => {
     const sec = document.getElementById('cat-' + c.id);
@@ -341,6 +361,7 @@ searchInput.addEventListener('input', () => {
     }
   });
   try { lucide.createIcons(); } catch { /* CDN 失败不影响过滤 */ }
+  if (typeof attachFavs === 'function') attachFavs();
   document.getElementById('emptyTip').classList.toggle('hidden', total > 0);
   document.getElementById('emptyTip').classList.toggle('flex', total === 0);
 });
@@ -441,6 +462,124 @@ backTop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' })
     } catch { /* 忽略 */ }
   }
 })();
+</script>
+
+<script>
+/* ================= 收藏夹（localStorage） ================= */
+const FAV_KEY = 'navhub_favs';
+const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+const saveFavs = a => { try { localStorage.setItem(FAV_KEY, JSON.stringify(a.slice(0, 200))); } catch {} };
+const isFav = id => getFavs().some(f => String(f.id) === String(id));
+
+let favMode = false;
+
+function favSiteFromCard(a) {
+  return {
+    id: a.dataset.id,
+    url: a.getAttribute('href'),
+    title: a.querySelector('.font-medium')?.textContent?.trim() || '',
+    icon: a.querySelector('img')?.getAttribute('src') || '',
+    description: a.querySelector('.text-xs')?.textContent?.trim() || '',
+    category_id: Number(a.closest('section[id^="cat-"]')?.id?.replace('cat-', '') || '0') || 0,
+  };
+}
+function toggleFav(a) {
+  const site = favSiteFromCard(a);
+  const favs = getFavs();
+  const i = favs.findIndex(f => String(f.id) === String(site.id));
+  if (i >= 0) favs.splice(i, 1); else favs.unshift(site);
+  saveFavs(favs);
+  refreshFavUI();
+}
+function refreshFavUI() {
+  const favs = getFavs();
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    const btn = a.querySelector('.fav-btn'); if (!btn) return;
+    const on = isFav(a.dataset.id);
+    btn.textContent = on ? '★' : '☆';
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none cursor-pointer ' +
+      (on ? 'text-amber-400 hover:text-amber-500' : 'text-slate-300 hover:text-amber-400');
+  });
+  const cnt = document.getElementById('favCount');
+  if (cnt) { cnt.textContent = favs.length; cnt.classList.toggle('hidden', favs.length === 0); }
+  if (favMode) renderFavView();
+}
+function attachFavs() {
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    if (a.querySelector('.fav-btn')) return;
+    const btn = document.createElement('button');
+    btn.setAttribute('type', 'button');
+    btn.setAttribute('aria-label', '收藏');
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none text-slate-300 hover:text-amber-400 cursor-pointer';
+    btn.textContent = '☆';
+    btn.style.top = '0.625rem';
+    btn.style.right = a.querySelector('[title="置顶"]') ? '2.25rem' : '0.625rem';
+    a.appendChild(btn);
+  });
+  refreshFavUI();
+}
+function renderFavView() {
+  const content = document.getElementById('content');
+  if (!content) return;
+  const favs = getFavs();
+  if (!favs.length) {
+    content.innerHTML = '<div class="text-center text-slate-400 dark:text-slate-500 py-20"><div class="text-3xl mb-3">☆</div><p class="text-sm">还没有收藏，点卡片右上角的星标把常去的好站收进来</p></div>';
+    try { lucide.createIcons(); } catch {}
+    return;
+  }
+  const cards = favs.map((f, i) => cardHTML({ id: f.id, url: f.url, title: f.title, icon: f.icon, description: f.description, tags: '' }, i)).join('');
+  content.innerHTML = `<section><div class="flex items-center gap-2.5 mb-4"><span class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-100/60 dark:border-amber-500/20 flex items-center justify-center text-base">⭐</span><h2 class="text-lg font-bold tracking-tight">我的收藏</h2><span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300">${favs.length}</span></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div></section>`;
+  try { lucide.createIcons(); } catch {}
+  attachFavs();
+}
+
+document.getElementById('favBtn').addEventListener('click', () => {
+  favMode = !favMode;
+  document.getElementById('featuredWrap').classList.toggle('hidden', favMode);
+  document.getElementById('popularWrap').classList.toggle('hidden', favMode);
+  document.getElementById('catFilter').classList.toggle('hidden', favMode);
+  document.getElementById('favBtn').classList.toggle('text-amber-500', favMode);
+  if (favMode) renderFavView();
+  else if (typeof render === 'function') render();
+});
+
+/* 收藏星标点击（捕获阶段拦截，阻止冒泡触发卡片跳转） */
+document.addEventListener('click', e => {
+  const fb = e.target.closest('.fav-btn');
+  if (!fb) return;
+  e.preventDefault(); e.stopPropagation();
+  const a = fb.closest('a.card-hover');
+  if (a) toggleFav(a);
+}, true);
+
+/* ================= 分类筛选 ================= */
+let activeCat = null;
+function renderCatFilter() {
+  const el = document.getElementById('catFilter');
+  if (!el || !NAV_DATA || !NAV_DATA.length) return;
+  const chips = [{ id: null, name: '全部', icon: '🧭' }, ...NAV_DATA.map(c => ({ id: c.id, name: c.name, icon: c.icon }))];
+  el.innerHTML = chips.map(c => `<button data-cat="${c.id ?? ''}" class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors duration-200 cursor-pointer ${String(c.id) === String(activeCat) ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30' : 'bg-white dark:bg-gray-900 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-gray-800 hover:border-indigo-300 hover:text-indigo-500'}">${c.icon || ''} ${esc(c.name)}</button>`).join('');
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    activeCat = b.dataset.cat ? Number(b.dataset.cat) : null;
+    renderCatFilter();
+    document.querySelectorAll('#content section[id^="cat-"]').forEach(sec => {
+      sec.classList.toggle('hidden', activeCat !== null && Number(sec.id.replace('cat-', '')) !== activeCat);
+    });
+  }));
+}
+
+/* ================= 点击热度上报 ================= */
+document.addEventListener('click', e => {
+  const a = e.target.closest('a.card-hover');
+  if (!a || e.target.closest('.fav-btn')) return;
+  const id = a.dataset.id;
+  if (id) fetch('/api/public/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(id) }), keepalive: true }).catch(() => {});
+});
+
+/* ================= PWA 注册 ================= */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
 </script>
 </body>
 </html>

@@ -72,4 +72,37 @@ router.get('/nav', (req, res) => {
   res.json({ code: 0, data });
 });
 
+// 点击统计（前台卡片点击时上报，无需鉴权，轻量自增）
+const clickWindow = new Map(); // 简单按 IP+站点限频，避免刷量
+function clickAllowed(ip, id) {
+  const key = ip + ':' + id;
+  const now = Date.now();
+  const last = clickWindow.get(key) || 0;
+  if (now - last < 1500) return false; // 同一访客同一站 1.5s 内只计一次
+  clickWindow.set(key, now);
+  return true;
+}
+router.post('/click', (req, res) => {
+  try {
+    const id = Number(req.body?.id);
+    if (!id) return res.status(400).json({ code: 1, message: '缺少 id' });
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
+    if (!clickAllowed(ip, id)) return res.json({ code: 0 }); // 静默忽略刷量
+    db.prepare('UPDATE sites SET clicks = clicks + 1 WHERE id = ?').run(id);
+    res.json({ code: 0 });
+  } catch {
+    res.status(500).json({ code: 1, message: '统计失败' });
+  }
+});
+
+// 热门站点（按点击降序，仅返回有点击的；用于首页「大家都在用」）
+router.get('/popular', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 12, 30);
+  const rows = db
+    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned
+              FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT ?`)
+    .all(limit);
+  res.json({ code: 0, data: rows });
+});
+
 module.exports = router;

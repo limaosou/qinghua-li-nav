@@ -1,0 +1,18 @@
+{
+  "name": "青花狸导航",
+  "short_name": "青花狸",
+  "description": "简洁好用的中文网址导航：分类收录常用网站、开发工具、影视娱乐与学习资源，支持收藏夹、搜索与深色模式。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F5F7",
+  "theme_color": "#4F46E5",
+  "lang": "zh-CN",
+  "categories": ["utilities", "reference", "productivity"],
+  "icons": [
+    { "src": "/brand-icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand-icon.png", "sizes": "any", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
