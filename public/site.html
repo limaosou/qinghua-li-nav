@@ -51,6 +51,12 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   #barsWrap.hide-mb .bar-mb { display: none; }
   .legend-item.off { opacity: .35; }
   .legend-item.off b { text-decoration: line-through; }
+  /* 数据统计：鼠标移到某天，该列高亮、其余列淡出（触屏没有 hover，只在有指针设备时启用） */
+  #barsWrap .bar-col { transition: opacity .2s ease; }
+  @media (hover: hover) {
+    #barsWrap:hover .bar-col:not(:hover) { opacity: .42; }
+  }
+  #barsWrap:focus-within .bar-col:not(:focus) { opacity: .42; }
   /* 网站介绍内容（后台单站填写，支持 HTML）排版 */
   .site-intro h1, .site-intro h2 { font-size: 1.125rem; font-weight: 700; margin: 1.25rem 0 .5rem; color: #1e293b; }
   .site-intro h3, .site-intro h4 { font-size: 1rem; font-weight: 600; margin: 1rem 0 .4rem; color: #334155; }
