@@ -37,6 +37,23 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * 详情类页面的规范地址统一为 /cat/{id} 与 /site/{id}。
+ * /site/12.html、/site/012、/site/12/ 都是同一页的不同写法，全部 301 到 /site/12；
+ * 否则搜索引擎会把它们当成多个地址（.html 原本还会因为 id 解析失败落到“302 回首页”，即软 404）。
+ * 已是规范地址时返回 false，交给调用方正常处理。
+ */
+function redirectToCanonical(req, res, prefix) {
+  const raw = String(req.params.id);
+  const m = /^0*(\d+?)(?:\.html?)?$/i.exec(raw);
+  if (!m) return false;
+  if (m[0] === m[1] && !req.path.endsWith('/')) return false;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  res.redirect(301, `${proto}://${host}${prefix}/${m[1]}`);
+  return true;
+}
+
 // 首页 SSR：内容直接输出进 HTML，利于 SEO 与 AI 搜索抓取
 app.get('/', (req, res) => {
   res.set('Cache-Control', 'public, max-age=60');
@@ -44,8 +61,13 @@ app.get('/', (req, res) => {
 });
 // 分类详情页：/cat/:id，展示该分类下全部站点（首页每个分类只展示前 20 个）
 app.get('/cat/:id', (req, res) => {
-  const html = renderCategoryPage(req, req.params.id);
-  if (!html) return res.redirect('/');
+  if (redirectToCanonical(req, res, '/cat')) return;
+  const html = renderCategoryPage(req, String(req.params.id));
+  if (!html) {
+    // 分类不存在：404（原来 302 回首页会被搜索引擎记为软 404），内容给首页方便访客继续浏览
+    res.status(404).set('Cache-Control', 'no-store');
+    return res.send(renderNavPage(req));
+  }
   res.set('Cache-Control', 'public, max-age=60');
   res.send(html);
 });
@@ -75,8 +97,13 @@ app.get('/about', (req, res) => {
 
 // 站点详情页：/site/:id（站点信息 + 每日访问统计柱状图，单站 SEO 落地页）
 app.get('/site/:id', (req, res) => {
-  const html = renderSiteDetail(req, req.params.id);
-  if (!html) return res.redirect('/');
+  if (redirectToCanonical(req, res, '/site')) return;
+  const html = renderSiteDetail(req, String(req.params.id));
+  if (!html) {
+    // 站点不存在或已隐藏：给 404 状态码（不再 302 回首页），同时渲染首页方便误点旧链接的访客继续浏览
+    res.status(404).set('Cache-Control', 'no-store');
+    return res.send(renderNavPage(req));
+  }
   res.set('Cache-Control', 'public, max-age=60');
   res.send(html);
 });
