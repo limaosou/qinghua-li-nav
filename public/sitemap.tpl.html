@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!--SSR_TITLE--></title>
+<meta name="description" content="<!--SSR_DESCRIPTION-->">
+<meta name="keywords" content="<!--SSR_KEYWORDS-->">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#4F46E5">
+<!--SSR_FAVICON-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<!--SSR_SITE_NAME-->">
+<meta property="og:title" content="<!--SSR_TITLE-->">
+<meta property="og:description" content="<!--SSR_DESCRIPTION-->">
+<link rel="canonical" href="<!--SSR_CANONICAL-->">
+<meta property="og:url" content="<!--SSR_CANONICAL-->">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!--SSR_CUSTOM_HEAD-->
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } } };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .bg-deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg-deco::before, .bg-deco::after { content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .18; }
+  .bg-deco::before { width: 480px; height: 480px; top: -160px; left: -120px; background: radial-gradient(circle, #6366f1, transparent 70%); }
+  .bg-deco::after  { width: 520px; height: 520px; top: -120px; right: -160px; background: radial-gradient(circle, #0ea5e9, transparent 70%); }
+  .dark .bg-deco::before, .dark .bg-deco::after { opacity: .12; }
+  .map-link { transition: color .15s ease; }
+</style>
+</head>
+<body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen antialiased">
+<div class="bg-deco"></div>
+
+<header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-200/60 dark:border-gray-800/60">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+    <a href="/" class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="返回首页">
+      <!--SSR_BRAND-->
+    </a>
+    <div class="flex items-center gap-2">
+      <button id="themeBtn" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" aria-label="切换深浅色">
+        <i data-lucide="moon-star" class="w-4 h-4"></i>
+      </button>
+      <a href="/" class="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>返回首页
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <nav aria-label="面包屑" class="mb-5 text-xs text-slate-400 dark:text-slate-500">
+    <a href="/" class="hover:text-indigo-500 transition-colors">首页</a>
+    <span class="mx-1.5">/</span>
+    <span class="text-slate-600 dark:text-slate-300 font-medium">网站地图</span>
+  </nav>
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+      <i data-lucide="map" class="w-6 h-6 text-indigo-500"></i>网站地图
+    </h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+      全站共 <b class="text-slate-700 dark:text-slate-200"><!--SSR_CAT_COUNT--></b> 个分类、<b class="text-slate-700 dark:text-slate-200"><!--SSR_SITE_COUNT--></b> 个收录网址，以下是完整清单。
+      每个条目都指向本站的介绍页（含直达官网入口），也可以<a href="/" class="text-indigo-500 hover:underline">回到首页</a>按分类浏览。
+    </p>
+  </div>
+
+  <div class="grid lg:grid-cols-[220px,1fr] gap-8 items-start">
+    <!-- 左侧分类导航（全站统一） -->
+    <aside class="hidden lg:block">
+      <!--SSR_SIDE_NAV-->
+    </aside>
+
+    <div class="min-w-0 space-y-6">
+      <!--SSR_SITEMAP_BODY-->
+    </div>
+  </div>
+</main>
+
+<footer class="max-w-6xl mx-auto px-4 sm:px-6 py-8 mt-4 border-t border-gray-200/70 dark:border-gray-800/70 text-xs text-slate-400 dark:text-slate-500 text-center">
+  <!--SSR_FOOTER-->
+</footer>
+
+<script>
+const root = document.documentElement;
+document.getElementById('themeBtn')?.addEventListener('click', () => {
+  root.classList.toggle('dark');
+  localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
+});
+if (window.lucide) lucide.createIcons();
+</script>
+</body>
+</html>

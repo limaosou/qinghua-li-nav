@@ -441,4 +441,81 @@ function renderSiteDetail(req, siteId) {
     .replaceAll('<!--SSR_RELATED-->', relatedHTML);
 }
 
-module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail };
+/**
+ * 网站地图（HTML 版）：百度不认 XML 地图，只吃 HTML 页面，所以这里用 SSR 输出全站清单。
+ * 每个条目都链接到站内 /site/{id} 详情页，让蜘蛛顺着爬过去收录单站长尾页。
+ */
+let sitemapTemplateCache = null;
+function renderSitemapPage(req) {
+  if (!sitemapTemplateCache) {
+    sitemapTemplateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'sitemap.tpl.html'), 'utf8');
+  }
+  const s = settings.getSettings();
+  const base = baseUrl(req);
+  const siteStmt = db.prepare(`SELECT id, title, description FROM sites
+    WHERE category_id = ? AND is_hidden = 0
+    ORDER BY is_pinned DESC, sort_order ASC, id ASC`);
+  const groups = getSideNavData()
+    .map(c => ({ ...c, sites: siteStmt.all(c.id) }))
+    .filter(g => g.sites.length);
+  const siteCount = groups.reduce((a, g) => a + g.sites.length, 0);
+
+  const body = groups.map(g => `
+    <section id="cat-${g.id}" class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+      <h2 class="text-base font-bold tracking-tight flex items-center gap-2 mb-3">
+        <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${esc(g.icon || '📁')}</span>
+        <a href="/cat/${g.id}" class="hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">${esc(g.name)}</a>
+        <span class="text-xs font-normal text-slate-400 dark:text-slate-500">${g.sites.length} 个</span>
+      </h2>
+      <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
+        ${g.sites.map(x => `<li class="min-w-0">
+          <a href="/site/${x.id}" class="map-link text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400">${esc(x.title)}</a>
+          ${x.description ? `<span class="block text-[11px] leading-snug text-slate-400 dark:text-slate-500 truncate">${esc(x.description)}</span>` : ''}
+        </li>`).join('\n        ')}
+      </ul>
+    </section>`).join('');
+
+  const title = `${s.site_name}导航网站地图 - 全部分类与收录网址一览`;
+  const desc = `${s.site_name}导航网站地图：共 ${groups.length} 个分类、${siteCount} 个收录网址的完整清单，含常用站点、影视动漫、资源搜索、游戏软件、阅读漫画、音乐、实用工具等分类，点击即可查看站点介绍并直达官网。`;
+  return sitemapTemplateCache
+    .replaceAll('<!--SSR_TITLE-->', esc(title))
+    .replaceAll('<!--SSR_DESCRIPTION-->', esc(desc))
+    .replaceAll('<!--SSR_KEYWORDS-->', esc(s.site_keywords))
+    .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
+    .replaceAll('<!--SSR_CANONICAL-->', esc(`${base}/sitemap.html`))
+    .replaceAll('<!--SSR_FAVICON-->', buildFaviconHTML(s))
+    .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
+    .replaceAll('<!--SSR_BRAND-->', buildBrandHTML(s))
+    .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s))
+    .replaceAll('<!--SSR_CAT_COUNT-->', String(groups.length))
+    .replaceAll('<!--SSR_SITE_COUNT-->', String(siteCount))
+    .replaceAll('<!--SSR_SIDE_NAV-->', buildSideNav(getSideNavData()))
+    .replaceAll('<!--SSR_SITEMAP_BODY-->', body);
+}
+
+/** sitemap.xml：首页 + 分类页 + 全部站点详情页 + 地图页/关于页 */
+function renderSitemapXML(req) {
+  const base = baseUrl(req);
+  const cats = getSideNavData();
+  const sites = db.prepare('SELECT id, created_at FROM sites WHERE is_hidden = 0 ORDER BY category_id ASC, sort_order ASC, id ASC').all();
+  // created_at 形如 2026-11-05 22:00:00（服务器本地时间），转成带时区的 ISO 给爬虫
+  const iso = t => {
+    const m = String(t || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+    return m ? `${m[1]}T${m[2]}+08:00` : '';
+  };
+  const urlTag = (loc, freq, priority, lastmod) =>
+    `  <url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>${freq}</changefreq><priority>${priority}</priority></url>`;
+  const lines = [
+    urlTag(`${base}/`, 'daily', '1.0'),
+    ...cats.map(c => urlTag(`${base}/cat/${c.id}`, 'daily', '0.8')),
+    ...sites.map(x => urlTag(`${base}/site/${x.id}`, 'weekly', '0.7', iso(x.created_at))),
+    urlTag(`${base}/sitemap.html`, 'weekly', '0.6'),
+    urlTag(`${base}/about`, 'monthly', '0.5'),
+  ];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${lines.join('\n')}
+</urlset>`;
+}
+
+module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML };

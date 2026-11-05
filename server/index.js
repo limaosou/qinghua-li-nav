@@ -12,7 +12,7 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const deployRoutes = require('./routes/deploy');
 const settings = require('./settings');
-const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail } = require('./render');
+const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
@@ -50,10 +50,16 @@ app.get('/cat/:id', (req, res) => {
   res.send(html);
 });
 
-// robots.txt：后台「站点配置」在线编辑
+// robots.txt：后台「站点配置」在线编辑；未写明 Sitemap 时自动补一行（否则爬虫不知道地图在哪）
 app.get('/robots.txt', (req, res) => {
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  let txt = String(settings.getSettings().robots_txt || '');
+  if (!/^\s*sitemap:/im.test(txt)) {
+    txt = txt.replace(/\s*$/, '\n') + `Sitemap: ${proto}://${host}/sitemap.xml\n`;
+  }
   res.set('Content-Type', 'text/plain; charset=utf-8');
-  res.send(settings.getSettings().robots_txt);
+  res.send(txt);
 });
 // llms.txt：面向 AI 搜索引擎（GEO）的结构化内容清单
 app.get('/llms.txt', (req, res) => {
@@ -75,21 +81,17 @@ app.get('/site/:id', (req, res) => {
   res.send(html);
 });
 
-// sitemap.xml：首页 + 各分类详情页
+// sitemap.xml：首页 + 分类页 + 全部站点详情页 + 地图页/关于页
 app.get('/sitemap.xml', (req, res) => {
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const base = `${proto}://${host}`;
-  const catUrls = getNavData()
-    .map(c => `  <url><loc>${base}/cat/${c.id}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`)
-    .join('\n');
   res.set('Content-Type', 'application/xml; charset=utf-8');
-  res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${base}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>${base}/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-${catUrls}
-</urlset>`);
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(renderSitemapXML(req));
+});
+
+// 网站地图（HTML 版）：百度只认 html，不认识 sitemap.xml 提交
+app.get('/sitemap.html', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.send(renderSitemapPage(req));
 });
 
 // 静态资源（前台 + 后台页面）
