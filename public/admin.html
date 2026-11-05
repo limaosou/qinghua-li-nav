@@ -310,6 +310,32 @@ tailwind.config = {
         </div>
       </div>
 
+      <!-- 图标本地化 -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="image-down" class="w-4 h-4 text-indigo-500"></i>图标本地化</h3>
+        <p class="text-xs text-slate-400 mb-3">把站点图标下载到本站 <code class="text-[11px]">/icons/</code> 目录，页面不再依赖第三方图标服务。当前已本地化 <b id="iconLocalCount" class="text-slate-600 dark:text-slate-300">-</b> / <span id="iconTotalCount">-</span> 个。保存网址时也会自动下载新图标。</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="iconLocalizeBtn" class="px-4 py-1.5 rounded-xl bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors cursor-pointer flex items-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>补全缺失图标</button>
+          <button id="iconForceBtn" class="px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">全部重新下载</button>
+          <button id="iconStopBtn" class="hidden px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">停止</button>
+          <span id="iconStatus" class="text-xs text-slate-400"></span>
+        </div>
+        <div id="iconProgressWrap" class="mt-3 hidden">
+          <div class="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden"><div id="iconBar" class="h-full bg-indigo-500 transition-all duration-300" style="width:0%"></div></div>
+          <div id="iconProgressText" class="text-xs text-slate-400 mt-1.5"></div>
+        </div>
+        <div id="iconFailWrap" class="mt-3 hidden">
+          <details class="rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
+            <summary class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none">下载失败 <b id="iconFailCount">0</b> 个（不影响前台：这些站点仍显示原外链图标，只是加载慢一些）</summary>
+            <div id="iconFailList" class="mt-2 max-h-56 overflow-auto text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 space-y-0.5"></div>
+          </details>
+        </div>
+        <label class="flex items-center justify-between gap-3 mt-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer">
+          <span class="text-sm text-slate-600 dark:text-slate-300">保存网址后自动下载图标 <span class="text-xs text-slate-400">（关闭后需要手动点上面的「补全缺失图标」）</span></span>
+          <input id="set_icon_auto_localize" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">
+        </label>
+      </div>
+
       <!-- 搜索引擎 -->
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
         <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="search" class="w-4 h-4 text-indigo-500"></i>搜索引擎（首页切换按钮，URL 中用 {query} 代表搜索词）</h3>
@@ -443,6 +469,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
   $('tab-' + btn.dataset.tab).classList.remove('hidden');
   if (btn.dataset.tab === 'settings' && !settingsLoaded) {
     loadSettings().catch(e => toast(e.message, false));
+    refreshIconStatus(true);
   }
   if (btn.dataset.tab === 'subs') {
     loadSubs().catch(e => toast(e.message, false));
@@ -793,6 +820,70 @@ $('siteTable').addEventListener('click', async e => {
   } catch (err) { toast(err.message, false); }
 });
 
+/* ============ 图标本地化 ============ */
+let iconTimer = null;
+
+async function refreshIconStatus(keepPolling) {
+  let st;
+  try { st = await api('/api/admin/icons/status', null, 'GET'); } catch { return; }
+  $('iconLocalCount').textContent = st.localCount;
+  $('iconTotalCount').textContent = st.totalSites;
+
+  const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
+  if (st.running || st.startedAt) {
+    $('iconProgressWrap').classList.remove('hidden');
+    $('iconBar').style.width = pct + '%';
+    $('iconProgressText').textContent = `已处理 ${st.done} / ${st.total} · 成功 ${st.ok} · 失败 ${st.fail}`;
+  } else {
+    $('iconProgressWrap').classList.add('hidden');
+  }
+
+  if (st.failures && st.failures.length) {
+    $('iconFailWrap').classList.remove('hidden');
+    $('iconFailCount').textContent = st.fail;
+    $('iconFailList').innerHTML = st.failures
+      .map(f => `<div>[${f.id}] ${esc(f.title)} <span class="text-slate-400">—— ${esc(f.reason)}</span></div>`)
+      .join('');
+  }
+
+  $('iconStatus').textContent = st.running
+    ? `下载中 ${st.done}/${st.total}…`
+    : st.finishedAt
+      ? `上次完成 ${new Date(st.finishedAt).toLocaleTimeString()} · 成功 ${st.ok} / 跳过 ${st.skip} / 失败 ${st.fail}`
+      : '';
+
+  $('iconLocalizeBtn').classList.toggle('hidden', st.running);
+  $('iconForceBtn').classList.toggle('hidden', st.running);
+  $('iconStopBtn').classList.toggle('hidden', !st.running);
+
+  if (st.running && keepPolling !== false) {
+    clearTimeout(iconTimer);
+    iconTimer = setTimeout(() => refreshIconStatus(true), 1500);
+  }
+}
+
+async function startIconLocalize(scope) {
+  try {
+    const r = await api('/api/admin/icons/localize', { scope });
+    if (!r.started) { toast(r.message || '没有需要处理的图标'); return; }
+    $('iconFailWrap').classList.add('hidden');
+    $('iconFailList').innerHTML = '';
+    $('iconProgressWrap').classList.remove('hidden');
+    $('iconBar').style.width = '0%';
+    toast(`开始下载 ${r.total} 个图标，可以先去忙别的，完成后会刷新`);
+    refreshIconStatus(true);
+  } catch (e) { toast(e.message, false); }
+}
+
+$('iconLocalizeBtn').addEventListener('click', () => startIconLocalize('missing'));
+$('iconForceBtn').addEventListener('click', () => {
+  if (!confirm('会重新下载全部站点图标，约需 1~3 分钟。确定继续？')) return;
+  startIconLocalize('all');
+});
+$('iconStopBtn').addEventListener('click', async () => {
+  try { await api('/api/admin/icons/stop', {}); toast('已停止，剩余图标下次继续'); } catch { /* ignore */ }
+});
+
 /* ============ 链接体检 ============ */
 let lcTimer = null;
 let lcResults = [];
@@ -1080,7 +1171,7 @@ $('exportBtn').addEventListener('click', async () => {
 /* ============ 站点配置 ============ */
 const SET_FIELDS = ['site_name', 'site_title', 'site_subtitle', 'site_description', 'site_keywords',
   'footer_text', 'icp', 'announcement', 'brand_icon', 'brand_image', 'custom_head', 'site_detail_enabled',
-  'stats_demo_enabled', 'stats_demo_threshold'];
+  'stats_demo_enabled', 'stats_demo_threshold', 'icon_auto_localize'];
 
 async function loadSettings() {
   const s = await api('/api/admin/settings', null, 'GET');

@@ -35,6 +35,8 @@ const DEFAULTS = {
   // 访问数据演示：站点初期真实访问太少，用演示值填充柱状图；单日真实访问达到阈值后展示真实值
   stats_demo_enabled: true,
   stats_demo_threshold: 5,
+  // 保存网址后自动把外链图标下载到本站（/icons/），避免新站继续走第三方图标服务
+  icon_auto_localize: true,
 };
 
 const upsert = db.prepare(

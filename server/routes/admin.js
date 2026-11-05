@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../db');
 const settings = require('../settings');
+const icons = require('../icons');
 const { verifyPassword, signToken, requireAuth } = require('../auth');
 const { safeFetch } = require('../netguard');
 
@@ -173,6 +174,85 @@ router.post('/categories', (req, res) => {
   }
 });
 
+// ---------- 图标本地化 ----------
+// 保存网址后若 icon 还是外链，就在后台悄悄下载到本站并改写数据库，
+// 这样新增站点不用再登服务器跑命令。失败不影响保存结果（原外链照常可用）。
+function autoLocalizeIcon(siteId) {
+  if (!settings.getSettings().icon_auto_localize) return;
+  setImmediate(async () => {
+    try {
+      const s = db.prepare('SELECT id, title, url, icon FROM sites WHERE id = ?').get(siteId);
+      if (!s || !icons.needsLocalize(s)) return;
+      const r = await icons.localizeSite(s);
+      console.log(
+        r.ok
+          ? `[icons] #${siteId} ${s.title} 已本地化 → ${r.icon}`
+          : `[icons] #${siteId} ${s.title} 自动本地化失败：${r.reason}`
+      );
+    } catch (e) {
+      console.log(`[icons] #${siteId} 自动本地化异常：${e.message}`);
+    }
+  });
+}
+
+// 批量本地化（后台「图标本地化」面板用，不阻塞请求）
+const iconJob = { running: false, stop: false, done: 0, total: 0, ok: 0, skip: 0, fail: 0, failures: [], scope: '', startedAt: null, finishedAt: null };
+
+router.post('/icons/localize', async (req, res) => {
+  if (iconJob.running) return res.json({ code: 0, data: { started: false, message: '正在下载中', total: iconJob.total, done: iconJob.done } });
+  const scope = String(req.body?.scope || 'missing'); // missing=只补缺失 / all=全部重下
+  let sites = db.prepare('SELECT id, title, url, icon FROM sites WHERE is_hidden = 0 ORDER BY id ASC').all();
+  if (scope !== 'all') sites = sites.filter((s) => icons.needsLocalize(s));
+  if (!sites.length) return res.json({ code: 0, data: { started: false, message: '没有需要处理的图标' } });
+
+  Object.assign(iconJob, { running: true, stop: false, done: 0, total: sites.length, ok: 0, skip: 0, fail: 0, failures: [], scope, startedAt: Date.now(), finishedAt: null });
+  (async () => {
+    const r = await icons.localizeMany(sites, {
+      force: scope === 'all',
+      concurrency: 6,
+      shouldStop: () => iconJob.stop,
+      onProgress: (acc) => {
+        iconJob.ok = acc.ok;
+        iconJob.skip = acc.skipped;
+        iconJob.fail = acc.fail;
+        iconJob.failures = acc.failures;
+        iconJob.done = acc.ok + acc.skipped + acc.fail;
+      },
+    });
+    iconJob.running = false;
+    iconJob.finishedAt = Date.now();
+    console.log(`[icons] 完成 ${iconJob.done}/${iconJob.total}，成功 ${iconJob.ok}，失败 ${iconJob.fail}`);
+  })();
+  res.json({ code: 0, data: { started: true, total: sites.length } });
+});
+
+router.post('/icons/stop', (req, res) => {
+  if (iconJob.running) iconJob.stop = true;
+  res.json({ code: 0 });
+});
+
+router.get('/icons/status', (req, res) => {
+  const totalSites = db.prepare('SELECT COUNT(*) c FROM sites WHERE is_hidden = 0').get().c;
+  const localCount = db.prepare("SELECT COUNT(*) c FROM sites WHERE is_hidden = 0 AND icon LIKE '/icons/%'").get().c;
+  res.json({
+    code: 0,
+    data: {
+      running: iconJob.running,
+      done: iconJob.done,
+      total: iconJob.total,
+      ok: iconJob.ok,
+      skip: iconJob.skip,
+      fail: iconJob.fail,
+      failures: iconJob.failures.slice(0, 60),
+      scope: iconJob.scope,
+      startedAt: iconJob.startedAt,
+      finishedAt: iconJob.finishedAt,
+      localCount,
+      totalSites,
+    },
+  });
+});
+
 // ---------- 网址管理 ----------
 router.post('/sites', (req, res) => {
   const { action } = req.body || {};
@@ -186,6 +266,7 @@ router.post('/sites', (req, res) => {
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(category_id, String(title).trim(), String(url).trim(), String(description), String(tags), String(icon), String(detail_content),
              Number(sort_order) || 0, is_pinned ? 1 : 0, is_hidden ? 1 : 0);
+      autoLocalizeIcon(info.lastInsertRowid);
       return res.json({ code: 0, data: { id: info.lastInsertRowid } });
     }
     if (action === 'update') {
@@ -207,6 +288,7 @@ router.post('/sites', (req, res) => {
           b.is_hidden !== undefined ? (b.is_hidden ? 1 : 0) : cur.is_hidden,
           b.id
         );
+      autoLocalizeIcon(b.id);
       return res.json({ code: 0 });
     }
     if (action === 'delete') {
