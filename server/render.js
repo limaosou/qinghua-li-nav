@@ -57,7 +57,7 @@ function cardHTML(s, i, extraClass = '', detailEnabled = false) {
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
-        ${s.icon ? `<img src="${esc(s.icon)}" alt="${esc(s.title)}" class="w-10 h-10 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        ${s.icon ? `<img src="${esc(s.icon)}" alt="${esc(s.title)}" loading="lazy" decoding="async" class="w-10 h-10 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
         <span class="w-10 h-10 rounded-xl items-center justify-center text-sm font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
       </div>
       <div class="min-w-0 pr-4">
@@ -197,7 +197,7 @@ function buildJSONLD(data, base, s) {
 /** 品牌区（图片/emoji + 站名），首页与分类页共用 */
 function buildBrandHTML(s) {
   return s.brand_image
-    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
+    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" decoding="async" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
       + `<span>${esc(s.site_name)}</span>`
     : `<span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-sm text-base">${esc(s.brand_icon || '🧭')}</span>`
       + `<span>${esc(s.site_name)}</span>`;
@@ -401,7 +401,7 @@ function renderSiteDetail(req, siteId) {
     return `<div class="group flex-1 flex flex-col items-center justify-end h-full min-w-0 outline-none" tabindex="0" aria-label="${esc(x.day)}：PC端 ${x.pc} 次，移动端 ${x.mb} 次，合计 ${total} 次">\n      <div class="relative flex items-end justify-center gap-1 sm:gap-1.5 w-full" style="height:140px">\n        <div class="bar-pc w-2.5 sm:w-3.5 max-w-[45%] rounded-t bg-[#3B82F6]" style="height:${pcH}%"></div>\n        <div class="bar-mb w-2.5 sm:w-3.5 max-w-[45%] rounded-t bg-[#10B981]" style="height:${mbH}%"></div>\n        <div class="pointer-events-none absolute z-20 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-150 ${tipPos}" style="bottom:max(calc(${maxH}% + 6px),40%)">\n          <div class="rounded-xl bg-slate-900/95 dark:bg-slate-700 text-white text-[11px] leading-snug px-2.5 py-1.5 shadow-xl whitespace-nowrap">\n            <div class="text-[10px] text-slate-400 dark:text-slate-300">${esc(x.day)} · 合计 <b class="text-white font-semibold">${total}</b> 次</div>\n            <div class="flex items-center gap-2 mt-0.5">\n              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-sm bg-[#3B82F6]"></span>PC <b class="font-semibold">${x.pc}</b></span>\n              <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-sm bg-[#10B981]"></span>移动 <b class="font-semibold">${x.mb}</b></span>\n            </div>\n          </div>\n        </div>\n      </div>\n      <span class="text-[9px] sm:text-[10px] leading-none text-slate-400 dark:text-slate-500 mt-1.5 whitespace-nowrap"><span class="sm:hidden">${Number(x.day.slice(8, 10))}</span><span class="hidden sm:inline">${esc(x.day.slice(5))}</span></span>\n    </div>`;
   }).join('');
   const siteIconHTML = site.icon
-    ? `<img src="${esc(site.icon)}" alt="${esc(site.title)}" class="w-16 h-16 rounded-2xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="w-16 h-16 rounded-2xl items-center justify-center text-xl font-bold text-white ${colorOf(site.title)}" style="display:none">${esc((site.title||'?')[0]).toUpperCase()}</span>`
+    ? `<img src="${esc(site.icon)}" alt="${esc(site.title)}" decoding="async" class="w-16 h-16 rounded-2xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="w-16 h-16 rounded-2xl items-center justify-center text-xl font-bold text-white ${colorOf(site.title)}" style="display:none">${esc((site.title||'?')[0]).toUpperCase()}</span>`
     : `<span class="w-16 h-16 rounded-2xl items-center justify-center text-xl font-bold text-white ${colorOf(site.title)}">${esc((site.title||'?')[0]).toUpperCase()}</span>`;
   const tags = (site.tags || '').split(',').map(t => t.trim()).filter(Boolean);
   const tagHTML = tags.length ? `<div class="flex flex-wrap gap-1.5">${tags.map(t => `<span class="${TAG_CHIP_CLASS}">${esc(t)}</span>`).join('')}</div>` : '';

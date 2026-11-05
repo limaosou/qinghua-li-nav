@@ -663,7 +663,7 @@ function renderSites() {
       <td class="px-5 py-2.5 overflow-hidden">
         <div class="flex items-center gap-2.5">
           <span class="relative w-8 h-8 shrink-0">
-            ${s.icon ? `<img src="${esc(s.icon)}" class="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-0.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+            ${s.icon ? `<img src="${esc(s.icon)}" loading="lazy" decoding="async" class="w-8 h-8 rounded-lg object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-0.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
             <span class="w-8 h-8 rounded-lg items-center justify-center text-xs font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
           </span>
           <span class="font-medium flex items-center gap-1.5 min-w-0">${dot}<span class="truncate">${esc(s.title)}</span></span>
