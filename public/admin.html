@@ -317,6 +317,7 @@ tailwind.config = {
         <div class="flex flex-wrap items-center gap-2">
           <button id="iconLocalizeBtn" class="px-4 py-1.5 rounded-xl bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors cursor-pointer flex items-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>补全缺失图标</button>
           <button id="iconForceBtn" class="px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">全部重新下载</button>
+          <button id="iconLetterBtn" class="px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer" title="把仍然抓不到图标的站点，用站名首字母生成本地图标（不联网、瞬间完成），前台不再请求第三方">字母图标补齐剩余</button>
           <button id="iconStopBtn" class="hidden px-4 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">停止</button>
           <span id="iconStatus" class="text-xs text-slate-400"></span>
         </div>
@@ -326,7 +327,7 @@ tailwind.config = {
         </div>
         <div id="iconFailWrap" class="mt-3 hidden">
           <details class="rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2">
-            <summary class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none">下载失败 <b id="iconFailCount">0</b> 个（不影响前台：这些站点仍显示原外链图标，只是加载慢一些）</summary>
+            <summary class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none">下载失败 <b id="iconFailCount">0</b> 个（这些站点暂时仍用外链图标；不想再等第三方，可以点上面的「字母图标补齐剩余」）</summary>
             <div id="iconFailList" class="mt-2 max-h-56 overflow-auto text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 space-y-0.5"></div>
           </details>
         </div>
@@ -882,6 +883,14 @@ $('iconForceBtn').addEventListener('click', () => {
 });
 $('iconStopBtn').addEventListener('click', async () => {
   try { await api('/api/admin/icons/stop', {}); toast('已停止，剩余图标下次继续'); } catch { /* ignore */ }
+});
+$('iconLetterBtn').addEventListener('click', async () => {
+  if (!confirm('把剩余抓不到图标的站点，改成「站名首字母」的本地图标？\n\n这些站点本来要等第三方图标服务，改完立刻秒开。以后想换回真图标，点「全部重新下载」即可。')) return;
+  try {
+    const r = await api('/api/admin/icons/letters', {});
+    toast(r.done ? `已生成 ${r.done} 个字母图标` : (r.message || '没有需要处理的站点'));
+    refreshIconStatus(false);
+  } catch (e) { toast(e.message, false); }
 });
 
 /* ============ 链接体检 ============ */

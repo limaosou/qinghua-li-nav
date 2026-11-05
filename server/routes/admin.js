@@ -231,6 +231,19 @@ router.post('/icons/stop', (req, res) => {
   res.json({ code: 0 });
 });
 
+// 字母图标兜底：把仍然解析不到图标的站点，生成本地 SVG（不联网，瞬间完成）
+router.post('/icons/letters', (req, res) => {
+  const sites = db.prepare('SELECT id, title, url, icon FROM sites WHERE is_hidden = 0 ORDER BY id ASC').all()
+    .filter((s) => icons.needsLocalize(s));
+  if (!sites.length) return res.json({ code: 0, data: { done: 0, message: '所有站点都已有本地图标' } });
+  let done = 0;
+  for (const s of sites) {
+    try { if (icons.letterIcon(s).ok) done++; } catch { /* 单个失败不影响其他 */ }
+  }
+  console.log(`[icons] 已为 ${done} 个站点生成字母图标`);
+  res.json({ code: 0, data: { done } });
+});
+
 router.get('/icons/status', (req, res) => {
   const totalSites = db.prepare('SELECT COUNT(*) c FROM sites WHERE is_hidden = 0').get().c;
   const localCount = db.prepare("SELECT COUNT(*) c FROM sites WHERE is_hidden = 0 AND icon LIKE '/icons/%'").get().c;

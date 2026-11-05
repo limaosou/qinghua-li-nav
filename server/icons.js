@@ -18,7 +18,7 @@ const OUT_DIR = path.join(__dirname, '..', 'public', 'icons');
 const PUBLIC_PREFIX = '/icons/';
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-const TIMEOUT_MS = 12000;
+const TIMEOUT_MS = 8000;
 const MAX_BYTES = 512 * 1024;
 
 const EXT_BY_TYPE = {
@@ -104,11 +104,12 @@ function describeError(e) {
   return '网络请求失败';
 }
 
-/** 网络层抖动可重试；HTTP 4xx/5xx 是对方明确拒绝，重试没意义 */
+/** 网络层抖动可重试；HTTP 4xx/5xx 是对方明确拒绝、超时重试只会让等待翻倍，都不重试 */
 function isRetryable(e) {
   const msg = String(e?.message || '');
   if (/HTTP \d{3}/.test(msg)) return false;
-  if (/不是图片|文件过大|响应为空/.test(msg)) return false;
+  if (/不是图片|文件过大|响应为空|占位图/.test(msg)) return false;
+  if (e?.name === 'TimeoutError' || e?.name === 'AbortError' || /aborted|timeout/i.test(msg)) return false;
   return true;
 }
 
@@ -179,6 +180,37 @@ function cleanupOld(id, keepName) {
   }
 }
 
+/** 抓首页 HTML，解析 <link rel="icon"> 指向的真实图标地址（很多站点根目录没有 favicon.ico） */
+async function fetchHtmlIconUrls(site) {
+  const pageUrl = /^https?:\/\//i.test(String(site.url || '')) ? String(site.url) : `https://${site.url}`;
+  const res = await fetch(pageUrl, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(8000),
+    headers: { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,*/*;q=0.8' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = (await res.text()).slice(0, 400 * 1024);
+  const base = res.url || pageUrl;
+
+  const found = [];
+  const re = /<link\b[^>]*>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const tag = m[0];
+    const rel = (tag.match(/rel\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+    if (!/icon/i.test(rel) || /mask-icon/i.test(rel)) continue;
+    const href = (tag.match(/href\s*=\s*["']([^"']+)["']/i) || [])[1] || '';
+    if (!href || /^data:/i.test(href)) continue;
+    try {
+      found.push({ rel: rel.trim().toLowerCase(), url: new URL(href, base).href });
+    } catch { /* 非法 href 忽略 */ }
+  }
+
+  // apple-touch-icon 通常是 180×180 的大图，优先；其余按文档顺序
+  found.sort((a, b) => (b.rel.includes('apple') ? 1 : 0) - (a.rel.includes('apple') ? 1 : 0));
+  return [...new Set(found.map((f) => f.url))].slice(0, 5);
+}
+
 function candidatesFor(site) {
   const icon = String(site.icon || '').trim();
   const list = [];
@@ -234,22 +266,77 @@ async function localizeSite(site, opts = {}) {
   if (!list.length) return { ok: false, reason: '图标为空且无法从网址推断域名' };
 
   let lastErr = null;
-  for (const url of list) {
-    try {
-      const { buf, ext } = await fetchImageWithRetry(url);
-      const name = `${site.id}${ext}`;
-      fs.writeFileSync(path.join(OUT_DIR, name), buf);
-      cleanupOld(site.id, name);
-      db.prepare('UPDATE sites SET icon = ? WHERE id = ?').run(PUBLIC_PREFIX + name, site.id);
-      return { ok: true, icon: PUBLIC_PREFIX + name, bytes: buf.length };
-    } catch (e) {
-      lastErr = e;
+  let triedCount = 0;
+
+  const save = (buf, ext) => {
+    const name = `${site.id}${ext}`;
+    fs.writeFileSync(path.join(OUT_DIR, name), buf);
+    cleanupOld(site.id, name);
+    db.prepare('UPDATE sites SET icon = ? WHERE id = ?').run(PUBLIC_PREFIX + name, site.id);
+    return { ok: true, icon: PUBLIC_PREFIX + name, bytes: buf.length };
+  };
+
+  const tryUrls = async (urls) => {
+    for (const url of urls) {
+      triedCount++;
+      try {
+        const { buf, ext } = await fetchImageWithRetry(url);
+        return save(buf, ext);
+      } catch (e) {
+        lastErr = e;
+        // 域名都解析不出来，换哪个路径都一样，直接收工，别让一个死站拖住整批
+        if (describeError(e) === '域名解析失败') break;
+      }
     }
+    return null;
+  };
+
+  // ① 常规猜测：库中地址 / favicon.im / 根目录 favicon.ico
+  const first = await tryUrls(list);
+  if (first) return first;
+
+  // 域名根本解析不了，抓首页也是白费时间
+  if (describeError(lastErr) === '域名解析失败') {
+    return { ok: false, reason: `试了 ${triedCount} 个地址，最后：域名解析失败` };
   }
+
+  // ② 解析首页 <link rel="icon">：很多站点根目录没有 favicon.ico，
+  //    图标实际放在 /favicon.svg 或某个 CDN 路径上
+  try {
+    const htmlUrls = await fetchHtmlIconUrls(site);
+    const r = await tryUrls(htmlUrls);
+    if (r) return r;
+  } catch (e) {
+    lastErr = e;
+  }
+
   return {
     ok: false,
-    reason: lastErr ? `试了 ${list.length} 个地址，最后：${describeError(lastErr)}` : '全部地址均失败',
+    reason: lastErr ? `试了 ${triedCount} 个地址，最后：${describeError(lastErr)}` : '全部地址均失败',
   };
+}
+
+const LETTER_COLORS = ['#6366F1', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];
+
+/** 生成字母图标（纯本地 SVG，不联网），给实在抓不到图标的站点兜底 */
+function letterIcon(site, opts = {}) {
+  const title = String(site.title || '').trim();
+  const ch = (title.match(/[\s\S]/u) || ['?'])[0].toUpperCase();
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const color = LETTER_COLORS[Math.abs(Number(site.id) || 0) % LETTER_COLORS.length];
+  const fs1 = /[\u4e00-\u9fa5]/.test(ch) ? 44 : 48;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="${esc(title)}">
+<rect width="64" height="64" rx="14" fill="${color}"/>
+<text x="32" y="44" text-anchor="middle" font-family="-apple-system,Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="${fs1}" font-weight="600" fill="#fff">${esc(ch)}</text>
+</svg>`;
+  const buf = Buffer.from(svg, 'utf8');
+  if (opts.dry) return { ok: true, bytes: buf.length, icon: `${PUBLIC_PREFIX}${site.id}.svg` };
+  ensureDir();
+  const name = `${site.id}.svg`;
+  fs.writeFileSync(path.join(OUT_DIR, name), buf);
+  cleanupOld(site.id, name);
+  db.prepare('UPDATE sites SET icon = ? WHERE id = ?').run(PUBLIC_PREFIX + name, site.id);
+  return { ok: true, icon: PUBLIC_PREFIX + name, bytes: buf.length, letter: true };
 }
 
 /** 并发跑一批（返回汇总，不抛错） */
@@ -288,5 +375,6 @@ module.exports = {
   needsLocalize,
   localizeSite,
   localizeMany,
+  letterIcon,
   sniffExt,
 };
