@@ -7,7 +7,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "hash-password": "node scripts/hash-password.js",
-    "submit": "node scripts/submit-index.js"
+    "submit": "node scripts/submit-index.js",
+    "icons": "node scripts/localize-icons.js"
   },
   "engines": {
     "node": ">=18"
