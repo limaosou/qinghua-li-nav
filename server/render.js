@@ -171,9 +171,12 @@ function getSideNavData() {
 let templateCache = null;
 
 function baseUrl(req) {
-  // 线上站点始终走 HTTPS（宝塔反代可能不回传 x-forwarded-proto，因此默认 https）
-  const proto = req.headers['x-forwarded-proto'] || 'https';
+  // 线上站点始终走 HTTPS（宝塔反代可能不回传 x-forwarded-proto，因此默认 https）；
+  // 本地直连没有反向代理头，用实际协议，避免 301 跳到本地不存在的 https。
+  const fwdProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
+  const proto = fwdProto || (isLocal ? req.protocol || 'http' : 'https');
   return `${proto}://${host}`;
 }
 
@@ -518,4 +521,4 @@ ${lines.join('\n')}
 </urlset>`;
 }
 
-module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML };
+module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML, baseUrl };

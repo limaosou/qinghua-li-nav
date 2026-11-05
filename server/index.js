@@ -12,7 +12,7 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const deployRoutes = require('./routes/deploy');
 const settings = require('./settings');
-const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML } = require('./render');
+const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail, renderSitemapPage, renderSitemapXML, baseUrl } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
@@ -48,9 +48,7 @@ function redirectToCanonical(req, res, prefix) {
   const m = /^0*(\d+?)(?:\.html?)?$/i.exec(raw);
   if (!m) return false;
   if (m[0] === m[1] && !req.path.endsWith('/')) return false;
-  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  res.redirect(301, `${proto}://${host}${prefix}/${m[1]}`);
+  res.redirect(301, `${baseUrl(req)}${prefix}/${m[1]}`);
   return true;
 }
 
