@@ -22,6 +22,20 @@ tailwind.config = {
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  /* 详情内容预览区排版（与前台详情页一致） */
+  .rich-preview h3, .rich-preview h4 { font-weight: 600; margin: .9rem 0 .4rem; color: #334155; font-size: 15px; }
+  .rich-preview h3:first-child, .rich-preview h4:first-child { margin-top: 0; }
+  .dark .rich-preview h3, .dark .rich-preview h4 { color: #e2e8f0; }
+  .rich-preview p { margin: .5rem 0; line-height: 1.8; }
+  .rich-preview ul, .rich-preview ol { margin: .5rem 0 .5rem 1.25rem; }
+  .rich-preview ul { list-style: disc; }
+  .rich-preview ol { list-style: decimal; }
+  .rich-preview li { margin: .25rem 0; line-height: 1.7; }
+  .rich-preview a { color: #4f46e5; text-decoration: underline; }
+  .rich-preview table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: .85rem; }
+  .rich-preview th, .rich-preview td { border: 1px solid #e2e8f0; padding: .4rem .6rem; text-align: left; }
+  .dark .rich-preview th, .dark .rich-preview td { border-color: #374151; }
+  .rich-preview blockquote { border-left: 3px solid #a5b4fc; padding-left: .75rem; color: #64748b; margin: .5rem 0; }
 </style>
 </head>
 <body class="bg-[#F5F5F7] dark:bg-gray-950 text-slate-900 dark:text-slate-200 min-h-screen antialiased">
@@ -155,6 +169,18 @@ tailwind.config = {
               <input id="siteSort" type="number" value="0" class="w-16 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400">
             </span>
           </div>
+          <div class="md:col-span-2 text-xs text-slate-400 space-y-1">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <span>网站介绍内容（显示在详情页「立即访问」下方，留空不显示）</span>
+              <span class="flex items-center gap-1.5">
+                <button type="button" id="pasteRichBtn" class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 text-[11px] font-medium hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition cursor-pointer">粘贴保留格式</button>
+                <button type="button" id="previewRichBtn" class="px-2.5 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer">预览</button>
+              </span>
+            </div>
+            <textarea id="siteDetailContent" rows="6" placeholder="可直接从其他网站复制正文，在本框内 Ctrl+V 粘贴（自动保留标题 / 段落 / 列表）；也可手写 &lt;h3&gt;/&lt;p&gt;/&lt;ul&gt;&lt;li&gt; 等 HTML" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition resize-y"></textarea>
+            <p class="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">粘贴时自动保留 <b>H3/H4 标题</b>、<b>P 段落</b>、<b>UL/OL/LI 列表</b>、加粗与链接；图片、脚本、内联样式会被自动剔除。</p>
+            <div id="siteDetailPreview" class="hidden mt-1 p-3 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-slate-600 dark:text-slate-300 rich-preview"></div>
+          </div>
         </div>
         <div class="flex gap-2 mt-4">
           <button id="saveSiteBtn" class="px-5 py-2 rounded-xl bg-indigo-500 text-white text-sm font-medium hover:bg-indigo-600 transition-colors cursor-pointer">保存</button>
@@ -270,6 +296,17 @@ tailwind.config = {
           <label class="text-xs text-slate-400 space-y-1">页脚文字<input id="set_footer_text" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
           <label class="text-xs text-slate-400 space-y-1">备案号（留空不显示）<input id="set_icp" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
           <label class="text-xs text-slate-400 space-y-1 md:col-span-2">自定义 head 代码（CSS / JS / 统计代码，谨慎填写）<textarea id="set_custom_head" rows="3" placeholder="<style>…</style> 或 <script>…</script>" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono outline-none focus:border-indigo-400 transition resize-none"></textarea></label>
+          <label class="flex items-center justify-between gap-3 md:col-span-2 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer">
+            <span class="text-sm text-slate-600 dark:text-slate-300">启用站点详情页 <span class="text-xs text-slate-400">（开启后首页卡片点击进入 /site/ 详情页，含每日访问统计；关闭则直接外链跳转）</span></span>
+            <input id="set_site_detail_enabled" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">
+          </label>
+          <label class="flex items-center justify-between gap-3 md:col-span-2 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer">
+            <span class="text-sm text-slate-600 dark:text-slate-300">访问数据演示 <span class="text-xs text-slate-400">（真实访问不足时用演示数据填充 15 天柱状图，避免初期图表全空；真实数据达标后自动切回真实值，演示值按「站点+日期」固定生成，刷新不会变）</span></span>
+            <input id="set_stats_demo_enabled" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">
+          </label>
+          <label class="text-xs text-slate-400 space-y-1 md:col-span-2">真实数据切换阈值（某天真实访问 ≥ 该值，该天就展示真实数据，默认 5）
+            <input id="set_stats_demo_threshold" type="number" min="1" max="999" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
+          </label>
         </div>
       </div>
 
@@ -507,7 +544,7 @@ function renderCatSelect() {
 
 function resetSiteForm() {
   editSiteId = null;
-  ['siteTitle', 'siteUrl', 'siteIcon', 'siteDesc', 'siteTags'].forEach(id => $(id).value = '');
+  ['siteTitle', 'siteUrl', 'siteIcon', 'siteDesc', 'siteTags', 'siteDetailContent'].forEach(id => $(id).value = '');
   $('sitePinned').checked = $('siteHidden').checked = false;
   $('siteSort').value = 0;
   $('iconPreview').style.visibility = 'hidden';
@@ -663,6 +700,7 @@ async function saveSite() {
     description: $('siteDesc').value.trim(),
     tags: $('siteTags').value.trim(),
     icon: $('siteIcon').value.trim(),
+    detail_content: $('siteDetailContent').value,
     is_pinned: $('sitePinned').checked ? 1 : 0,
     is_hidden: $('siteHidden').checked ? 1 : 0,
     sort_order: +$('siteSort').value || 0,
@@ -729,6 +767,7 @@ $('siteTable').addEventListener('click', async e => {
       $('siteTitle').value = s.title; $('siteUrl').value = s.url;
       $('siteDesc').value = s.description || ''; $('siteTags').value = s.tags || '';
       $('siteIcon').value = s.icon || '';
+      $('siteDetailContent').value = s.detail_content || '';
       if (s.icon) { $('iconPreview').src = s.icon; $('iconPreview').style.visibility = 'visible'; }
       $('sitePinned').checked = !!s.is_pinned; $('siteHidden').checked = !!s.is_hidden;
       $('siteSort').value = s.sort_order || 0;
@@ -1040,11 +1079,12 @@ $('exportBtn').addEventListener('click', async () => {
 
 /* ============ 站点配置 ============ */
 const SET_FIELDS = ['site_name', 'site_title', 'site_subtitle', 'site_description', 'site_keywords',
-  'footer_text', 'icp', 'announcement', 'brand_icon', 'brand_image', 'custom_head'];
+  'footer_text', 'icp', 'announcement', 'brand_icon', 'brand_image', 'custom_head', 'site_detail_enabled',
+  'stats_demo_enabled', 'stats_demo_threshold'];
 
 async function loadSettings() {
   const s = await api('/api/admin/settings', null, 'GET');
-  SET_FIELDS.forEach(k => { const el = $('set_' + k); if (el) el.value = s[k] ?? ''; });
+  SET_FIELDS.forEach(k => { const el = $('set_' + k); if (!el) return; if (el.type === 'checkbox') el.checked = !!s[k]; else el.value = s[k] ?? ''; });
   $('set_robots_txt').value = s.robots_txt ?? '';
   engineList = Array.isArray(s.engines) ? [...s.engines] : [];
   navLinkList = Array.isArray(s.nav_links) ? [...s.nav_links] : [];
@@ -1113,7 +1153,11 @@ $('saveSettingsBtn').addEventListener('click', async () => {
   document.querySelectorAll('[data-nav-label]').forEach(inp => { navLinkList[+inp.dataset.navLabel].label = inp.value; });
   document.querySelectorAll('[data-nav-url]').forEach(inp => { navLinkList[+inp.dataset.navUrl].url = inp.value; });
   const body = {};
-  SET_FIELDS.forEach(k => { body[k] = $('set_' + k).value; });
+  SET_FIELDS.forEach(k => {
+    const el = $('set_' + k);
+    body[k] = el.type === 'checkbox' ? el.checked : el.value;
+    if (k === 'stats_demo_threshold') body[k] = Math.max(1, Number(el.value) || 5);
+  });
   body.robots_txt = $('set_robots_txt').value;
   body.engines = engineList;
   body.nav_links = navLinkList;
@@ -1137,6 +1181,189 @@ $('changePwBtn').addEventListener('click', async () => {
     toast('密码已修改，下次登录请使用新密码');
   } catch (e) { toast(e.message, false); }
 });
+
+/* ============ 网站介绍内容：从别的网站复制正文粘贴时保留 H3 / P / UL / LI 结构 ============ */
+(function richPaste() {
+  const ta = $('siteDetailContent');
+  if (!ta) return;
+  const previewBox = $('siteDetailPreview');
+
+  const ALLOWED = new Set(['H3', 'H4', 'P', 'UL', 'OL', 'LI', 'STRONG', 'EM', 'A', 'BR', 'BLOCKQUOTE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'HR', 'PRE', 'CODE']);
+  const DROP = 'script,style,noscript,iframe,svg,img,video,audio,form,input,button,select,textarea,link,meta,canvas,object,embed';
+  const BLOCK = new Set(['P', 'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'MAIN', 'ASIDE', 'NAV', 'FIGURE', 'FIGCAPTION', 'BLOCKQUOTE', 'PRE', 'TABLE', 'UL', 'OL', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'DL', 'DT', 'DD']);
+  // 这些块级标签输出后补一个换行，textarea 里更好读
+  const NEWLINE_AFTER = new Set(['H3', 'H4', 'P', 'UL', 'OL', 'BLOCKQUOTE', 'PRE', 'TABLE', 'HR']);
+
+  const escText = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escAttr = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /** 把粘贴进来的网页 HTML 规范化：去脚本样式、统一标题层级、无语义 div 转段落 */
+  function normalize(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const body = doc.body;
+    body.querySelectorAll(DROP).forEach(el => el.remove());
+
+    // h1/h2 → h3（页面自己已有 h1，避免层级冲突）；h5/h6 → h4；b→strong；i→em
+    const RENAME = { H1: 'h3', H2: 'h3', H5: 'h4', H6: 'h4', B: 'strong', I: 'em' };
+    body.querySelectorAll('h1,h2,h5,h6,b,i').forEach(el => {
+      const tag = RENAME[el.tagName];
+      if (!tag) return;
+      const n = doc.createElement(tag);
+      while (el.firstChild) n.appendChild(el.firstChild);
+      el.replaceWith(n);
+    });
+
+    // 清掉所有属性/内联样式，只给 a 保留 http(s) 链接
+    body.querySelectorAll('*').forEach(el => {
+      const href = el.tagName === 'A' ? (el.getAttribute('href') || '').trim() : '';
+      [...el.attributes].forEach(a => el.removeAttribute(a.name));
+      if (href && /^https?:\/\//i.test(href)) el.setAttribute('href', href);
+    });
+
+    // div/section 等容器：内部没有块级元素就当成一段；有块级子元素则拆开（保留子结构）
+    body.querySelectorAll('div,section,article,header,footer,main,aside,nav,figure,figcaption,dl,dt,dd,center').forEach(el => {
+      if (!el.parentNode) return;
+      const hasBlockChild = [...el.children].some(c => BLOCK.has(c.tagName));
+      if (hasBlockChild) {
+        el.replaceWith(...el.childNodes);
+      } else if (el.textContent.trim()) {
+        const p = doc.createElement('p');
+        while (el.firstChild) p.appendChild(el.firstChild);
+        el.replaceWith(p);
+      } else {
+        el.remove();
+      }
+    });
+
+    // 顶层散落的文字/行内元素（如裸 <span>）→ 包进段落，避免详情页出现无段落包裹的裸文字
+    const kids = [...body.childNodes];
+    let run = [];
+    const flush = () => {
+      const hasContent = run.some(n => (n.nodeType === 3 ? n.nodeValue.trim() : true));
+      if (hasContent) {
+        const p = doc.createElement('p');
+        body.insertBefore(p, run[0]);
+        run.forEach(n => p.appendChild(n));
+      }
+      run = [];
+    };
+    kids.forEach(n => {
+      if (n.nodeType === 1 && BLOCK.has(n.tagName)) flush();
+      else run.push(n);
+    });
+    flush();
+
+    return body;
+  }
+
+  function serialize(node) {
+    let out = '';
+    node.childNodes.forEach(n => {
+      if (n.nodeType === 3) {
+        out += escText(n.nodeValue.replace(/[\t\r\n]+/g, ' ').replace(/ {2,}/g, ' '));
+        return;
+      }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName;
+      if (tag === 'BR') { out += '<br>'; return; }
+      if (tag === 'A') {
+        const inner = serialize(n).trim();
+        if (!inner) return;
+        const href = n.getAttribute('href');
+        out += href ? `<a href="${escAttr(href)}" target="_blank" rel="noopener">${inner}</a>` : inner;
+        return;
+      }
+      const inner = serialize(n);
+      if (!inner.trim() && tag !== 'TD' && tag !== 'TH') return;
+      if (ALLOWED.has(tag)) {
+        const t = tag.toLowerCase();
+        const trimInner = tag === 'LI' || tag === 'P' || tag === 'H3' || tag === 'H4' || tag === 'TH' || tag === 'TD';
+        out += `<${t}>${trimInner ? inner.trim() : inner}</${t}>`;
+        if (NEWLINE_AFTER.has(tag)) out += '\n';
+      } else {
+        out += inner; // span/u/s/font 等：只留文字内容
+      }
+    });
+    return out;
+  }
+
+  /** 网页 HTML → 后台可直接保存的干净 HTML（只含 H3/H4/P/UL/OL/LI/表格/链接等） */
+  function htmlToRich(html) {
+    try {
+      const body = normalize(html);
+      return serialize(body).replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').replace(/^[ \t]+/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  function insertAtCursor(text) {
+    if (!text) return;
+    const start = ta.selectionStart ?? ta.value.length;
+    const end = ta.selectionEnd ?? ta.value.length;
+    const before = ta.value.slice(0, start);
+    const after = ta.value.slice(end);
+    const padBefore = before && !/\n$/.test(before) ? '\n' : '';
+    const padAfter = after && !/^\n/.test(after) ? '\n' : '';
+    const chunk = padBefore + text + padAfter;
+    ta.value = before + chunk + after;
+    const pos = start + chunk.length;
+    ta.setSelectionRange(pos, pos);
+    ta.focus();
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    if (previewBox && !previewBox.classList.contains('hidden')) renderPreview();
+  }
+
+  // ① 直接在输入框里 Ctrl+V：剪贴板带富文本就转换后插入，纯文本走浏览器默认行为
+  ta.addEventListener('paste', e => {
+    const cd = e.clipboardData;
+    if (!cd) return;
+    const html = cd.getData('text/html');
+    if (!html) return;
+    const rich = htmlToRich(html);
+    if (!rich) return;
+    e.preventDefault();
+    insertAtCursor(rich);
+    toast('已粘贴并保留 标题 / 段落 / 列表 格式');
+  });
+
+  // ② 「粘贴保留格式」按钮：读剪贴板（需 HTTPS 或 localhost）
+  $('pasteRichBtn')?.addEventListener('click', async () => {
+    ta.focus();
+    try {
+      if (!navigator.clipboard?.read) throw new Error('unsupported');
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        if (item.types.includes('text/html')) {
+          const html = await (await item.getType('text/html')).text();
+          const rich = htmlToRich(html);
+          if (rich) { insertAtCursor(rich); toast('已粘贴并保留 标题 / 段落 / 列表 格式'); return; }
+        }
+        if (item.types.includes('text/plain')) {
+          const txt = await (await item.getType('text/plain')).text();
+          insertAtCursor(txt.split(/\n{2,}/).map(s => `<p>${escText(s.trim()).replace(/\n/g, '<br>')}</p>`).join('\n'));
+          toast('剪贴板只有纯文本，已按段落粘贴');
+          return;
+        }
+      }
+      toast('剪贴板里没有可粘贴的文本', false);
+    } catch {
+      toast('浏览器未授权读取剪贴板，请点进输入框直接按 Ctrl+V', false);
+    }
+  });
+
+  // ③ 预览（按前台详情页样式渲染，确认粘贴结果）
+  function renderPreview() {
+    if (!previewBox) return;
+    const raw = ta.value.trim();
+    previewBox.innerHTML = raw ? htmlToRich(raw) : '<p class="text-slate-400">（还没有内容）</p>';
+  }
+  $('previewRichBtn')?.addEventListener('click', () => {
+    if (!previewBox) return;
+    const hidden = previewBox.classList.toggle('hidden');
+    if (!hidden) renderPreview();
+  });
+})();
 
 /* ============ 启动 ============ */
 icons();

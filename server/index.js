@@ -12,7 +12,7 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const deployRoutes = require('./routes/deploy');
 const settings = require('./settings');
-const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData } = require('./render');
+const { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail } = require('./render');
 
 const app = express();
 app.disable('x-powered-by');
@@ -65,6 +65,14 @@ app.get('/llms.txt', (req, res) => {
 app.get('/about', (req, res) => {
   res.set('Cache-Control', 'public, max-age=300');
   res.send(renderAboutPage(req));
+});
+
+// 站点详情页：/site/:id（站点信息 + 每日访问统计柱状图，单站 SEO 落地页）
+app.get('/site/:id', (req, res) => {
+  const html = renderSiteDetail(req, req.params.id);
+  if (!html) return res.redirect('/');
+  res.set('Cache-Control', 'public, max-age=60');
+  res.send(html);
 });
 
 // sitemap.xml：首页 + 各分类详情页

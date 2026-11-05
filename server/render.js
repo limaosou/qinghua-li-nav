@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db');
 const settings = require('./settings');
+const stats = require('./stats');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -46,9 +47,12 @@ function getNavData() {
 }
 
 /* 与前端 index.html 中的模板保持一致 */
-function cardHTML(s, i, extraClass = '') {
+function cardHTML(s, i, extraClass = '', detailEnabled = false) {
+  const href = detailEnabled ? `/site/${s.id}` : esc(s.url);
+  const attrs = detailEnabled ? '' : 'target="_blank" rel="noopener"';
+  const dataId = detailEnabled ? '' : `data-id="${esc(s.id ?? '')}"`;
   return `
-  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}" data-id="${esc(s.id ?? '')}"
+  <a href="${href}" ${attrs} ${dataId} data-idx="${i}"
      class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
@@ -65,7 +69,7 @@ function cardHTML(s, i, extraClass = '') {
   </a>`;
 }
 
-function renderFragments(data) {
+function renderFragments(data, detailEnabled = false) {
   const catnav = data.map(c => `
     <a href="#cat-${c.id}" class="cat-link flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 transition-colors duration-200 cursor-pointer" data-cat="${c.id}">
       <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${c.icon || '📁'}</span>
@@ -88,7 +92,7 @@ function renderFragments(data) {
         </a>` : ''}
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        ${c.sites.slice(0, SITE_LIMIT).map((s, i) => cardHTML(s, i)).join('')}
+        ${c.sites.slice(0, SITE_LIMIT).map((s, i) => cardHTML(s, i, '', detailEnabled)).join('')}
       </div>
     </section>`).join('');
 
@@ -96,11 +100,11 @@ function renderFragments(data) {
 }
 
 /** 编辑精选条：汇集全站被「置顶」的站点（后台「置顶」即入选），最多 12 个 */
-function featuredHTML(data) {
+function featuredHTML(data, detailEnabled = false) {
   const pinned = [];
   for (const c of data) for (const s of c.sites) if (s.is_pinned) pinned.push(s);
   if (!pinned.length) return '';
-  const cards = pinned.slice(0, 12).map((s, i) => cardHTML(s, i)).join('');
+  const cards = pinned.slice(0, 12).map((s, i) => cardHTML(s, i, '', detailEnabled)).join('');
   return `<section class="mb-10" aria-label="青花狸精选">
     <div class="flex items-center gap-2.5 mb-4">
       <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-100/60 dark:border-amber-500/20 flex items-center justify-center text-base">⭐</span>
@@ -112,13 +116,13 @@ function featuredHTML(data) {
 }
 
 /** 热门站点条：按点击降序取前 12（clicks>0 才显示），空则不渲染 */
-function popularHTML() {
+function popularHTML(detailEnabled = false) {
   const rows = db
     .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned
               FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT 12`)
     .all();
   if (!rows.length) return '';
-  const cards = rows.map((s, i) => cardHTML(s, i)).join('');
+  const cards = rows.map((s, i) => cardHTML(s, i, '', detailEnabled)).join('');
   return `<section class="mb-10" aria-label="热门站点">
     <div class="flex items-center gap-2.5 mb-4">
       <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-500/10 dark:to-pink-500/10 border border-rose-100/60 dark:border-rose-500/20 flex items-center justify-center text-base">🔥</span>
@@ -127,6 +131,41 @@ function popularHTML() {
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div>
   </section>`;
+}
+
+/**
+ * 通用左侧分类导航（首页以外的所有页面共用）
+ * @param {Array} data 分类数据
+ * @param {string|number|null} activeId 当前分类 id；传 'home' 高亮首页
+ */
+function buildSideNav(data, activeId = null) {
+  const active = activeId == null ? '' : String(activeId);
+  const item = (href, icon, name, count, on) => `
+    <a href="${href}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors duration-200 ${on
+      ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium'
+      : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 dark:hover:text-indigo-400'}">
+      <span class="w-7 h-7 rounded-lg ${on ? 'bg-indigo-100 dark:bg-indigo-500/20' : 'bg-slate-100 dark:bg-gray-800'} flex items-center justify-center text-sm shrink-0">${esc(icon || '📁')}</span>
+      <span class="truncate">${esc(name)}</span>
+      ${count == null ? '' : `<span class="ml-auto text-[11px] text-slate-400 dark:text-slate-500">${count}</span>`}
+    </a>`;
+  const total = data.reduce((a, c) => a + (c.count != null ? c.count : (c.sites ? c.sites.length : 0)), 0);
+  return `<nav class="sticky top-20 space-y-1" aria-label="分类导航">
+    <p class="px-3 pb-1 text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">导航</p>
+    ${item('/', '🏠', '首页', total, active === 'home')}
+    <p class="px-3 pt-3 pb-1 text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">全部分类</p>
+    ${data.map(c => {
+      const n = c.count != null ? c.count : (c.sites ? c.sites.length : 0);
+      return item(`/cat/${c.id}`, c.icon, c.name, n, active === String(c.id));
+    }).join('')}
+  </nav>`;
+}
+
+/** 轻量分类清单（只取 id/名称/图标/收录数），给侧栏用，避免整站站点数据 */
+function getSideNavData() {
+  return db.prepare(`
+    SELECT c.id, c.name, c.icon, COUNT(s.id) AS count
+    FROM categories c LEFT JOIN sites s ON s.category_id = c.id AND s.is_hidden = 0
+    GROUP BY c.id ORDER BY c.sort_order ASC, c.id ASC`).all();
 }
 
 let templateCache = null;
@@ -185,7 +224,8 @@ function renderNavPage(req) {
   }
   const data = getNavData();
   const s = settings.getSettings();
-  const frag = renderFragments(data);
+  const detail = !!s.site_detail_enabled;
+  const frag = renderFragments(data, detail);
   const base = baseUrl(req);
   // JSON 内的 </script> 需要转义，防止提前闭合脚本标签
   const navJSON = JSON.stringify(data).replace(/</g, '\\u003c');
@@ -226,8 +266,8 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s))
     .replaceAll('<!--SSR_CATNAV-->', frag.catnav)
     .replaceAll('<!--SSR_CATNAV_MOBILE-->', frag.catnavMobile)
-    .replaceAll('<!--SSR_FEATURED-->', featuredHTML(data))
-    .replaceAll('<!--SSR_POPULAR-->', popularHTML())
+    .replaceAll('<!--SSR_FEATURED-->', featuredHTML(data, detail))
+    .replaceAll('<!--SSR_POPULAR-->', popularHTML(detail))
     .replaceAll('<!--SSR_CONTENT-->', frag.content)
     .replaceAll('<!--SSR_DATA-->', `<script>window.__NAV__=${navJSON};window.__SETTINGS__=${settingsJSON};</script>`);
 }
@@ -283,8 +323,9 @@ function renderCategoryPage(req, catId) {
     .replaceAll('<!--SSR_CAT_NAME-->', esc(cat.name))
     .replaceAll('<!--SSR_CAT_ICON-->', cat.icon || '📁')
     .replaceAll('<!--SSR_CAT_COUNT-->', String(cat.sites.length))
-    .replaceAll('<!--SSR_CAT_CARDS-->', cat.sites.map((st, i) => cardHTML(st, i)).join('\n'))
+    .replaceAll('<!--SSR_CAT_CARDS-->', cat.sites.map((st, i) => cardHTML(st, i, '', !!s.site_detail_enabled)).join('\n'))
     .replaceAll('<!--SSR_CAT_SIBLINGS-->', siblingsHTML)
+    .replaceAll('<!--SSR_SIDE_NAV-->', buildSideNav(data, cat.id))
     .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s));
 }
 
@@ -325,7 +366,75 @@ function renderAboutPage(req) {
     .replaceAll('<!--SSR_FAVICON-->', buildFaviconHTML(s))
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_BRAND-->', buildBrandHTML(s))
+    .replaceAll('<!--SSR_SIDE_NAV-->', buildSideNav(getSideNavData()))
     .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s));
 }
 
-module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData };
+/** 站点详情页（/site/:id）：站点信息 + 每日访问统计柱状图（SSR，利于单站 SEO 收录） */
+let siteTemplateCache = null;
+function renderSiteDetail(req, siteId) {
+  if (!siteTemplateCache) {
+    siteTemplateCache = fs.readFileSync(path.join(__dirname, '..', 'public', 'site.html'), 'utf8');
+  }
+  const id = Number(siteId);
+  const site = db.prepare('SELECT id, category_id, title, url, description, tags, icon, is_pinned, clicks, detail_content FROM sites WHERE id = ? AND is_hidden = 0').get(id);
+  if (!site) return null;
+  const cat = db.prepare('SELECT id, name, icon FROM categories WHERE id = ?').get(site.category_id);
+  const s = settings.getSettings();
+  const base = baseUrl(req);
+  // 展示口径：真实访问不足阈值时由 stats 模块补演示值（数值按 site+day 哈希稳定，刷新不变）
+  const st = stats.getSiteStats(id);
+  const stats15 = st.series;
+  const total15 = st.total15;
+  const totalPc = st.totalPc;
+  const totalMb = st.totalMb;
+  const related = db.prepare('SELECT id, category_id, title, url, description, tags, icon, is_pinned FROM sites WHERE is_hidden = 0 AND category_id = ? AND id != ? ORDER BY is_pinned DESC, sort_order ASC LIMIT 8').all(site.category_id, id);
+  const maxBar = Math.max(1, ...stats15.flatMap(x => [x.pc, x.mb]));
+  const barsHTML = stats15.map(x => {
+    const pcH = x.pc ? Math.max(Math.round((x.pc / maxBar) * 100), 5) : 0;
+    const mbH = x.mb ? Math.max(Math.round((x.mb / maxBar) * 100), 5) : 0;
+    const total = x.pc + x.mb;
+    return `<div class="flex-1 flex flex-col items-center justify-end h-full min-w-0" title="${esc(x.day)}：PC端 ${x.pc} 次 / 移动端 ${x.mb} 次">\n      <span class="text-[10px] leading-none text-slate-500 dark:text-slate-400">${total || ''}</span>\n      <div class="flex items-end justify-center gap-1 sm:gap-1.5 w-full" style="height:128px">\n        <div class="bar-pc w-2.5 sm:w-3.5 max-w-[45%] rounded-t bg-[#3B82F6]" style="height:${pcH}%" title="PC端 ${x.pc}"></div>\n        <div class="bar-mb w-2.5 sm:w-3.5 max-w-[45%] rounded-t bg-[#10B981]" style="height:${mbH}%" title="移动端 ${x.mb}"></div>\n      </div>\n      <span class="text-[9px] sm:text-[10px] leading-none text-slate-400 dark:text-slate-500 mt-1.5 whitespace-nowrap"><span class="sm:hidden">${Number(x.day.slice(8, 10))}</span><span class="hidden sm:inline">${esc(x.day.slice(5))}</span></span>\n    </div>`;
+  }).join('');
+  const siteIconHTML = site.icon
+    ? `<img src="${esc(site.icon)}" alt="${esc(site.title)}" class="w-16 h-16 rounded-2xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1.5" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="w-16 h-16 rounded-2xl items-center justify-center text-xl font-bold text-white ${colorOf(site.title)}" style="display:none">${esc((site.title||'?')[0]).toUpperCase()}</span>`
+    : `<span class="w-16 h-16 rounded-2xl items-center justify-center text-xl font-bold text-white ${colorOf(site.title)}">${esc((site.title||'?')[0]).toUpperCase()}</span>`;
+  const tags = (site.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  const tagHTML = tags.length ? `<div class="flex flex-wrap gap-1.5">${tags.map(t => `<span class="${TAG_CHIP_CLASS}">${esc(t)}</span>`).join('')}</div>` : '';
+  const relatedHTML = related.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${related.map((r, i) => cardHTML(r, i, '', true)).join('\n')}</div>` : `<p class="text-sm text-slate-400 dark:text-slate-500">该分类下暂无其他站点</p>`;
+  const desc = `${s.site_name}收录的网站「${site.title}」：${site.description || ''}。近 15 天访问 ${total15} 次（PC端 ${totalPc} / 移动端 ${totalMb}），点击直达官网。`;
+  const detailContentHTML = String(site.detail_content || '').trim()
+    ? `<section class="site-intro bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8 leading-relaxed text-sm text-slate-600 dark:text-slate-300">${String(site.detail_content)}</section>`
+    : '';
+  const jsonld = JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebPage', name: site.title, url: `${base}/site/${site.id}`, description: site.description || '' }).replace(/</g, '\\u003c');
+  return siteTemplateCache
+    .replaceAll('<!--SSR_TITLE-->', esc(`${site.title} - ${s.site_name}`))
+    .replaceAll('<!--SSR_DESCRIPTION-->', esc(desc))
+    .replaceAll('<!--SSR_KEYWORDS-->', esc(tags.join(',') || s.site_keywords))
+    .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
+    .replaceAll('<!--SSR_CANONICAL-->', esc(`${base}/site/${site.id}`))
+    .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${jsonld}</script>`)
+    .replaceAll('<!--SSR_FAVICON-->', buildFaviconHTML(s))
+    .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
+    .replaceAll('<!--SSR_BRAND-->', buildBrandHTML(s))
+    .replaceAll('<!--SSR_FOOTER-->', buildFooterHTML(s))
+    .replaceAll('<!--SSR_SITE_ID-->', String(site.id))
+    .replaceAll('<!--SSR_SITE_TITLE-->', esc(site.title))
+    .replaceAll('<!--SSR_SITE_ICON-->', siteIconHTML)
+    .replaceAll('<!--SSR_SITE_URL-->', esc(site.url))
+    .replaceAll('<!--SSR_SITE_DESC-->', esc(site.description || ''))
+    .replaceAll('<!--SSR_CAT_NAME-->', esc(cat ? cat.name : ''))
+    .replaceAll('<!--SSR_CAT_ID-->', String(cat ? cat.id : ''))
+    .replaceAll('<!--SSR_CAT_ICON-->', cat ? (cat.icon || '📁') : '📁')
+    .replaceAll('<!--SSR_CLICKS-->', String(stats.displayClicks(site.clicks, st, site.id)))
+    .replaceAll('<!--SSR_TOTAL15-->', String(total15))
+    .replaceAll('<!--SSR_TOTAL_PC-->', String(totalPc))
+    .replaceAll('<!--SSR_TOTAL_MB-->', String(totalMb))
+    .replaceAll('<!--SSR_DETAIL_CONTENT-->', detailContentHTML)
+    .replaceAll('<!--SSR_TAGS-->', tagHTML)
+    .replaceAll('<!--SSR_BARS-->', barsHTML)
+    .replaceAll('<!--SSR_SIDE_NAV-->', buildSideNav(getSideNavData(), site.category_id))
+    .replaceAll('<!--SSR_RELATED-->', relatedHTML);
+}
+
+module.exports = { renderNavPage, renderCategoryPage, renderLLMsTxt, renderAboutPage, getNavData, renderSiteDetail };

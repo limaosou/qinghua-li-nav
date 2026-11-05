@@ -30,6 +30,11 @@ const DEFAULTS = {
   nav_links: [],
   // 自定义代码（注入 </head> 前）
   custom_head: '',
+  // 站点详情页：前台卡片点击进入 /site/{id}（含每日访问统计），关闭则直接外链跳转
+  site_detail_enabled: true,
+  // 访问数据演示：站点初期真实访问太少，用演示值填充柱状图；单日真实访问达到阈值后展示真实值
+  stats_demo_enabled: true,
+  stats_demo_threshold: 5,
 };
 
 const upsert = db.prepare(
@@ -63,6 +68,7 @@ function getPublicSettings() {
     announcement: s.announcement,
     engines: s.engines,
     nav_links: s.nav_links,
+    site_detail_enabled: !!s.site_detail_enabled,
   };
 }
 

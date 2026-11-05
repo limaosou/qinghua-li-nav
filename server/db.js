@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sites (
   is_pinned    INTEGER DEFAULT 0,
   is_hidden    INTEGER DEFAULT 0,
   clicks       INTEGER DEFAULT 0,
+  detail_content TEXT  DEFAULT '',   -- 单站详情页「网站介绍内容」（支持 HTML）
   created_at   TEXT    DEFAULT (datetime('now','localtime'))
 );
 
@@ -58,12 +59,41 @@ CREATE TABLE IF NOT EXISTS submissions (
 );
 `);
 
+// ---------- 每日访问统计（站点详情页「数据统计」柱状图数据源）----------
+// 按设备区分：PC端 / 移动端 分别累计，便于双色柱状图展示
+db.exec(`
+CREATE TABLE IF NOT EXISTS daily_visits (
+  site_id     INTEGER NOT NULL,
+  day         TEXT    NOT NULL,   -- YYYY-MM-DD（按本地时区）
+  pc_hits     INTEGER DEFAULT 0,  -- 电脑端访问次数
+  mobile_hits INTEGER DEFAULT 0,  -- 移动端访问次数
+  PRIMARY KEY (site_id, day)
+);
+`);
+
+// ---------- 兼容旧库：daily_visits 旧版只有 hits 单列，迁移为 pc/mobile 双列 ----------
+try {
+  const cols = db.prepare('PRAGMA table_info(daily_visits)').all().map(c => c.name);
+  if (cols.length && !cols.includes('pc_hits')) {
+    db.exec('ALTER TABLE daily_visits ADD COLUMN pc_hits INTEGER DEFAULT 0');
+    db.exec('ALTER TABLE daily_visits ADD COLUMN mobile_hits INTEGER DEFAULT 0');
+    if (cols.includes('hits')) {
+      db.exec('UPDATE daily_visits SET pc_hits = hits, mobile_hits = 0 WHERE hits > 0');
+    }
+    console.log('✓ 已为 daily_visits 表补充 pc_hits / mobile_hits 列');
+  }
+} catch { /* 忽略 */ }
+
 // ---------- 兼容旧库：补充 clicks 列（点击热度统计）----------
 try {
   const cols = db.prepare('PRAGMA table_info(sites)').all().map((c) => c.name);
   if (!cols.includes('clicks')) {
     db.exec('ALTER TABLE sites ADD COLUMN clicks INTEGER DEFAULT 0');
     console.log('✓ 已为 sites 表补充 clicks 列');
+  }
+  if (!cols.includes('detail_content')) {
+    db.exec("ALTER TABLE sites ADD COLUMN detail_content TEXT DEFAULT ''");
+    console.log('✓ 已为 sites 表补充 detail_content 列');
   }
 } catch { /* 忽略 */ }
 

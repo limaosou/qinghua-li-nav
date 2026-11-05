@@ -178,13 +178,13 @@ router.post('/sites', (req, res) => {
   const { action } = req.body || {};
   try {
     if (action === 'create') {
-      const { category_id, title, url, description = '', tags = '', icon = '', sort_order = 0, is_pinned = 0, is_hidden = 0 } = req.body;
+      const { category_id, title, url, description = '', tags = '', icon = '', detail_content = '', sort_order = 0, is_pinned = 0, is_hidden = 0 } = req.body;
       if (!title || !url) throw new Error('标题和网址不能为空');
       if (!db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id)) throw new Error('所属分类不存在');
       const info = db
-        .prepare(`INSERT INTO sites (category_id, title, url, description, tags, icon, sort_order, is_pinned, is_hidden)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(category_id, String(title).trim(), String(url).trim(), String(description), String(tags), String(icon),
+        .prepare(`INSERT INTO sites (category_id, title, url, description, tags, icon, detail_content, sort_order, is_pinned, is_hidden)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(category_id, String(title).trim(), String(url).trim(), String(description), String(tags), String(icon), String(detail_content),
              Number(sort_order) || 0, is_pinned ? 1 : 0, is_hidden ? 1 : 0);
       return res.json({ code: 0, data: { id: info.lastInsertRowid } });
     }
@@ -192,7 +192,7 @@ router.post('/sites', (req, res) => {
       const b = req.body;
       const cur = db.prepare('SELECT * FROM sites WHERE id = ?').get(b.id);
       if (!cur) throw new Error('网址不存在');
-      db.prepare(`UPDATE sites SET category_id=?, title=?, url=?, description=?, tags=?, icon=?,
+      db.prepare(`UPDATE sites SET category_id=?, title=?, url=?, description=?, tags=?, icon=?, detail_content=?,
                   sort_order=?, is_pinned=?, is_hidden=? WHERE id=?`)
         .run(
           b.category_id ?? cur.category_id,
@@ -201,6 +201,7 @@ router.post('/sites', (req, res) => {
           b.description !== undefined ? String(b.description) : cur.description,
           b.tags !== undefined ? String(b.tags) : cur.tags,
           b.icon !== undefined ? String(b.icon || '') : cur.icon,
+          b.detail_content !== undefined ? String(b.detail_content) : (cur.detail_content || ''),
           b.sort_order !== undefined ? Number(b.sort_order) || 0 : cur.sort_order,
           b.is_pinned !== undefined ? (b.is_pinned ? 1 : 0) : cur.is_pinned,
           b.is_hidden !== undefined ? (b.is_hidden ? 1 : 0) : cur.is_hidden,

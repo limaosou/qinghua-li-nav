@@ -41,7 +41,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
 <div class="bg-deco" aria-hidden="true"></div>
 
 <header class="sticky top-0 z-40 backdrop-blur-xl bg-white/75 dark:bg-gray-900/75 border-b border-gray-200/80 dark:border-gray-800">
-  <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
     <a href="/" class="flex items-center gap-2.5 font-bold text-lg tracking-tight cursor-pointer">
       <!--SSR_BRAND-->
     </a>
@@ -57,7 +57,14 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   </div>
 </header>
 
-<main class="flex-1 max-w-3xl w-full mx-auto px-4 py-10">
+<main class="flex-1 max-w-5xl w-full mx-auto px-4 py-10">
+  <div class="grid lg:grid-cols-[220px,1fr] gap-8 items-start">
+    <!-- 左侧分类导航（全站统一） -->
+    <aside class="hidden lg:block">
+      <!--SSR_SIDE_NAV-->
+    </aside>
+
+    <div class="min-w-0">
   <p class="text-sm text-indigo-500 dark:text-indigo-400 font-medium mb-2">关于青花狸</p>
   <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-5">一只蓝白小狸，替你收藏全网好站</h1>
 
@@ -86,6 +93,8 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
       </a>
     </div>
   </section>
+    </div>
+  </div>
 </main>
 
 <footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">

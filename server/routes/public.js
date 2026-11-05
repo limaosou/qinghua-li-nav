@@ -7,6 +7,7 @@
 const express = require('express');
 const db = require('../db');
 const settings = require('../settings');
+const stats = require('../stats');
 
 const router = express.Router();
 
@@ -87,8 +88,22 @@ router.post('/click', (req, res) => {
     const id = Number(req.body?.id);
     if (!id) return res.status(400).json({ code: 1, message: '缺少 id' });
     const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
+    // 搜索引擎蜘蛛 / 监控探针 / 脚本请求不计入统计（详情页要被百度收录，抓取会很多）
+    if (stats.isBotUA(req.headers['user-agent'])) return res.json({ code: 0 });
     if (!clickAllowed(ip, id)) return res.json({ code: 0 }); // 静默忽略刷量
     db.prepare('UPDATE sites SET clicks = clicks + 1 WHERE id = ?').run(id);
+    // 按北京时间切日，避免早上 8 点前的访问被记到前一天
+    const day = stats.todayKey();
+    // 按 User-Agent 区分 PC / 移动端
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const isMobile = /mobile|android|iphone|ipad|ipod|windows phone|harmony|micromessenger|huawei|oppo|vivo|redmi|mi\s|blackberry|iemobile|opera mini|webos|symbian/i.test(ua);
+    if (isMobile) {
+      db.prepare(`INSERT INTO daily_visits (site_id, day, pc_hits, mobile_hits) VALUES (?, ?, 0, 1)
+        ON CONFLICT(site_id, day) DO UPDATE SET mobile_hits = mobile_hits + 1`).run(id, day);
+    } else {
+      db.prepare(`INSERT INTO daily_visits (site_id, day, pc_hits, mobile_hits) VALUES (?, ?, 1, 0)
+        ON CONFLICT(site_id, day) DO UPDATE SET pc_hits = pc_hits + 1`).run(id, day);
+    }
     res.json({ code: 0 });
   } catch {
     res.status(500).json({ code: 1, message: '统计失败' });
@@ -103,6 +118,26 @@ router.get('/popular', (req, res) => {
               FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT ?`)
     .all(limit);
   res.json({ code: 0, data: rows });
+});
+
+// 站点详情（公开）：返回站点信息 + 分类名 + 近 15 天每日访问（PC / 移动端分列）
+router.get('/site/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ code: 1, message: '缺少 id' });
+  const site = db.prepare('SELECT id, category_id, title, url, description, tags, icon, is_pinned, clicks FROM sites WHERE id = ? AND is_hidden = 0').get(id);
+  if (!site) return res.status(404).json({ code: 1, message: '站点不存在' });
+  const cat = db.prepare('SELECT id, name, icon FROM categories WHERE id = ?').get(site.category_id);
+  // 展示口径：真实数据不足时由 stats 模块补演示值，接口与 SSR 页面保持一致
+  const st = stats.getSiteStats(id);
+  const data = {
+    site: { ...site, clicks: stats.displayClicks(site.clicks, st, site.id) },
+    category: cat ? { id: cat.id, name: cat.name, icon: cat.icon } : null,
+    stats: st.series,
+    total15: st.total15,
+    totalPc: st.totalPc,
+    totalMb: st.totalMb,
+  };
+  res.json({ code: 0, data });
 });
 
 module.exports = router;

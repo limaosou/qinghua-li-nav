@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!--SSR_TITLE--></title>
+<meta name="description" content="<!--SSR_DESCRIPTION-->">
+<meta name="keywords" content="<!--SSR_KEYWORDS-->">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#4F46E5">
+<!--SSR_FAVICON-->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<!--SSR_SITE_NAME-->">
+<meta property="og:title" content="<!--SSR_TITLE-->">
+<meta property="og:description" content="<!--SSR_DESCRIPTION-->">
+<link rel="canonical" href="<!--SSR_CANONICAL-->">
+<meta property="og:url" content="<!--SSR_CANONICAL-->">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="青花狸导航">
+<!--SSR_JSONLD-->
+<!--SSR_CUSTOM_HEAD-->
+<script>
+if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  document.documentElement.classList.add('dark');
+}
+</script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'Noto Sans SC', 'system-ui', 'sans-serif'] } } } };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  .card-hover { transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease; }
+  .card-hover:hover { transform: translateY(-2px); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+  .bg-deco { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+  .bg-deco::before, .bg-deco::after { content: ''; position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .18; }
+  .bg-deco::before { width: 480px; height: 480px; top: -160px; left: -120px; background: radial-gradient(circle, #6366f1, transparent 70%); }
+  .bg-deco::after  { width: 520px; height: 520px; top: -120px; right: -160px; background: radial-gradient(circle, #0ea5e9, transparent 70%); }
+  .dark .bg-deco::before, .dark .bg-deco::after { opacity: .12; }
+  .card-hover img, .card-hover > div:first-child > div:first-child span { transition: transform .25s ease; }
+  .card-hover:hover img { transform: scale(1.1); }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .card-hover, .card-hover:hover { transition: none; transform: none; } }
+  /* 数据统计：点击图例隐藏/显示对应柱子 */
+  #barsWrap.hide-pc .bar-pc { display: none; }
+  #barsWrap.hide-mb .bar-mb { display: none; }
+  .legend-item.off { opacity: .35; }
+  .legend-item.off b { text-decoration: line-through; }
+  /* 网站介绍内容（后台单站填写，支持 HTML）排版 */
+  .site-intro h1, .site-intro h2 { font-size: 1.125rem; font-weight: 700; margin: 1.25rem 0 .5rem; color: #1e293b; }
+  .site-intro h3, .site-intro h4 { font-size: 1rem; font-weight: 600; margin: 1rem 0 .4rem; color: #334155; }
+  .dark .site-intro h1, .dark .site-intro h2, .dark .site-intro h3, .dark .site-intro h4 { color: #e2e8f0; }
+  .site-intro p { margin: .5rem 0; line-height: 1.85; }
+  .site-intro ul, .site-intro ol { margin: .5rem 0 .5rem 1.25rem; }
+  .site-intro ul { list-style: disc; }
+  .site-intro ol { list-style: decimal; }
+  .site-intro li { margin: .25rem 0; line-height: 1.75; }
+  .site-intro a { color: #4f46e5; text-decoration: underline; }
+  .site-intro img { max-width: 100%; border-radius: .5rem; }
+  .site-intro table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: .85rem; }
+  .site-intro th, .site-intro td { border: 1px solid #e2e8f0; padding: .4rem .6rem; text-align: left; }
+  .site-intro th { background: #f8fafc; font-weight: 600; }
+  .dark .site-intro th { background: #1f2937; }
+  .dark .site-intro th, .dark .site-intro td { border-color: #374151; }
+  .site-intro blockquote { border-left: 3px solid #a5b4fc; padding-left: .75rem; color: #64748b; margin: .5rem 0; }
+</style>
+</head>
+<body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen antialiased">
+<div class="bg-deco"></div>
+
+<header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-200/60 dark:border-gray-800/60">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+    <a href="/" class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="返回首页">
+      <!--SSR_BRAND-->
+    </a>
+    <div class="flex items-center gap-2">
+      <button id="themeBtn" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors cursor-pointer" aria-label="切换深浅色">
+        <i data-lucide="moon-star" class="w-4 h-4"></i>
+      </button>
+      <a href="/" class="h-9 px-3.5 rounded-xl flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-gray-800 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>返回首页
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+  <nav aria-label="面包屑" class="mb-5 text-xs text-slate-400 dark:text-slate-500">
+    <a href="/" class="hover:text-indigo-500 transition-colors">首页</a>
+    <span class="mx-1.5">/</span>
+    <a href="/cat/<!--SSR_CAT_ID-->" class="hover:text-indigo-500 transition-colors"><!--SSR_CAT_NAME--></a>
+    <span class="mx-1.5">/</span>
+    <span class="text-slate-600 dark:text-slate-300 font-medium"><!--SSR_SITE_TITLE--></span>
+  </nav>
+
+  <div class="grid lg:grid-cols-[220px,1fr] gap-8 items-start">
+    <!-- 左侧分类导航（全站统一） -->
+    <aside class="hidden lg:block">
+      <!--SSR_SIDE_NAV-->
+    </aside>
+
+    <div class="min-w-0">
+  <!-- 站点详情卡片 -->
+  <section class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+      <!--SSR_SITE_ICON-->
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl font-bold tracking-tight"><!--SSR_SITE_TITLE--></h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5"><!--SSR_SITE_DESC--></p>
+        <!--SSR_TAGS-->
+      </div>
+    </div>
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-6">
+      <a href="<!--SSR_SITE_URL-->" target="_blank" rel="noopener" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-base font-semibold hover:opacity-90 transition shadow-lg shadow-indigo-500/20 cursor-pointer">
+        <i data-lucide="external-link" class="w-5 h-5"></i> 立即访问官网
+      </a>
+      <div class="flex gap-3">
+        <div class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div class="text-lg font-bold text-indigo-500"><!--SSR_CLICKS--></div>
+          <div class="text-[11px] text-slate-400">累计点击</div>
+        </div>
+        <div class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div class="text-lg font-bold text-emerald-500"><!--SSR_TOTAL15--></div>
+          <div class="text-[11px] text-slate-400">近15天访问</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 详情页内容（后台「站点配置」填写，留空不显示） -->
+  <!--SSR_DETAIL_CONTENT-->
+
+  <!-- 数据统计（仿 fofba：单站每日访问柱状图，PC端 / 移动端 双色） -->
+  <section class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8">
+    <h2 class="text-lg font-bold tracking-tight flex items-center gap-2 mb-1">
+      <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-500"></i>数据统计
+    </h2>
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-3 text-center">近 15 天每日访问量 · 点击图例可切换显示</p>
+    <div class="flex items-center justify-center gap-6 mb-5">
+      <button type="button" class="legend-item flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none" data-series="pc">
+        <span class="w-2.5 h-2.5 rounded-sm bg-[#3B82F6]"></span>PC端 <b class="font-semibold"><!--SSR_TOTAL_PC--></b>
+      </button>
+      <button type="button" class="legend-item flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none" data-series="mb">
+        <span class="w-2.5 h-2.5 rounded-sm bg-[#10B981]"></span>移动端 <b class="font-semibold"><!--SSR_TOTAL_MB--></b>
+      </button>
+    </div>
+    <div id="barsWrap" class="flex items-end justify-between gap-1 w-full h-52 pb-1">
+      <!--SSR_BARS-->
+    </div>
+  </section>
+
+  <!-- 相关站点 -->
+  <section class="mb-4">
+    <h2 class="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+      <span><!--SSR_CAT_ICON--></span><!--SSR_CAT_NAME--> 相关推荐
+    </h2>
+    <!--SSR_RELATED-->
+  </section>
+    </div>
+  </div>
+</main>
+
+<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+  <!--SSR_FOOTER-->
+  <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
+</footer>
+
+<script>
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const root = document.documentElement;
+  root.classList.toggle('dark');
+  localStorage.setItem('navhub_theme', root.classList.contains('dark') ? 'dark' : 'light');
+});
+if (window.lucide) lucide.createIcons();
+
+/* 访问统计上报：进入详情页记一次（开关开启时首页卡片不重复上报，直接访问详情页也计） */
+try { fetch('/api/public/click', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: Number('<!--SSR_SITE_ID-->') }), keepalive: true }); } catch (e) {}
+
+/* 数据统计图例：点击 PC端 / 移动端 切换对应柱子显示或隐藏 */
+document.querySelectorAll('.legend-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const wrap = document.getElementById('barsWrap');
+    if (!wrap) return;
+    const off = wrap.classList.toggle('hide-' + btn.dataset.series);
+    btn.classList.toggle('off', off);
+  });
+});
+
+/* 收藏夹（localStorage） */
+const FAV_KEY = 'navhub_favs';
+const getFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } };
+const saveFavs = a => { try { localStorage.setItem(FAV_KEY, JSON.stringify(a.slice(0, 200))); } catch {} };
+const isFav = id => getFavs().some(f => String(f.id) === String(id));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function favSiteFromCard(a) {
+  return { id: a.dataset.id, url: a.getAttribute('href'), title: a.querySelector('.font-medium')?.textContent?.trim() || '', icon: a.querySelector('img')?.getAttribute('src') || '', description: a.querySelector('.text-xs')?.textContent?.trim() || '', category_id: 0 };
+}
+function toggleFav(a) { const site = favSiteFromCard(a); const favs = getFavs(); const i = favs.findIndex(f => String(f.id) === String(site.id)); if (i >= 0) favs.splice(i, 1); else favs.unshift(site); saveFavs(favs); refreshFavUI(); }
+function refreshFavUI() {
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    const btn = a.querySelector('.fav-btn'); if (!btn) return;
+    const on = isFav(a.dataset.id);
+    btn.textContent = on ? '★' : '☆';
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none cursor-pointer ' + (on ? 'text-amber-400 hover:text-amber-500' : 'text-slate-300 hover:text-amber-400');
+  });
+}
+function attachFavs() {
+  document.querySelectorAll('a.card-hover[data-id]').forEach(a => {
+    if (a.querySelector('.fav-btn')) return;
+    const btn = document.createElement('button');
+    btn.setAttribute('type', 'button'); btn.setAttribute('aria-label', '收藏');
+    btn.className = 'fav-btn absolute z-10 w-7 h-7 rounded-lg flex items-center justify-center text-lg leading-none text-slate-300 hover:text-amber-400 cursor-pointer';
+    btn.textContent = '☆';
+    btn.style.top = '0.625rem'; btn.style.right = '0.625rem';
+    a.appendChild(btn);
+  });
+  refreshFavUI();
+}
+document.addEventListener('click', e => { const fb = e.target.closest('.fav-btn'); if (!fb) return; e.preventDefault(); e.stopPropagation(); const a = fb.closest('a.card-hover'); if (a) toggleFav(a); }, true);
+
+/* 点击热度上报（仅对带 data-id 的卡片；开关开启时相关站点无 data-id，靠 onload 上报） */
+document.addEventListener('click', e => {
+  const a = e.target.closest('a.card-hover');
+  if (!a || e.target.closest('.fav-btn')) return;
+  const id = a.dataset.id;
+  if (id) fetch('/api/public/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(id) }), keepalive: true }).catch(() => {});
+});
+
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }); }
+attachFavs();
+</script>
+</body>
+</html>

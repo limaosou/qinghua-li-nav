@@ -251,8 +251,12 @@ function tagsHTML(s) {
 }
 
 function cardHTML(s, i, extraClass = '') {
+  const detail = window.__SETTINGS__ && window.__SETTINGS__.site_detail_enabled;
+  const href = detail ? '/site/' + s.id : esc(s.url);
+  const attrs = detail ? '' : 'target="_blank" rel="noopener"';
+  const dataId = detail ? '' : `data-id="${esc(s.id ?? '')}"`;
   return `
-  <a href="${esc(s.url)}" target="_blank" rel="noopener" data-idx="${i}" data-id="${esc(s.id ?? '')}"
+  <a href="${href}" ${attrs} ${dataId} data-idx="${i}"
      class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">

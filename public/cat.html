@@ -89,22 +89,31 @@ tailwind.config = {
     <span class="text-slate-600 dark:text-slate-300 font-medium"><!--SSR_CAT_NAME--></span>
   </nav>
 
-  <!-- 分类标题 -->
-  <div class="flex items-center gap-3 mb-6">
-    <span class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-xl"><!--SSR_CAT_ICON--></span>
-    <div>
-      <h1 class="text-xl font-bold tracking-tight"><!--SSR_CAT_NAME--></h1>
-      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">共收录 <span class="font-semibold text-indigo-500"><!--SSR_CAT_COUNT--></span> 个精选站点</p>
+  <div class="grid lg:grid-cols-[220px,1fr] gap-8 items-start">
+    <!-- 左侧分类导航（全站统一） -->
+    <aside class="hidden lg:block">
+      <!--SSR_SIDE_NAV-->
+    </aside>
+
+    <div class="min-w-0">
+      <!-- 分类标题 -->
+      <div class="flex items-center gap-3 mb-6">
+        <span class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-xl"><!--SSR_CAT_ICON--></span>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight"><!--SSR_CAT_NAME--></h1>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">共收录 <span class="font-semibold text-indigo-500"><!--SSR_CAT_COUNT--></span> 个精选站点</p>
+        </div>
+      </div>
+
+      <!-- 全部站点 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+<!--SSR_CAT_CARDS-->
+      </div>
+
+      <!-- 同级分类 -->
+      <!--SSR_CAT_SIBLINGS-->
     </div>
   </div>
-
-  <!-- 全部站点 -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-<!--SSR_CAT_CARDS-->
-  </div>
-
-  <!-- 同级分类 -->
-  <!--SSR_CAT_SIBLINGS-->
 </main>
 
 <footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
