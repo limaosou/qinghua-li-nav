@@ -206,11 +206,14 @@ function buildBrandHTML(s) {
       + `<span>${esc(s.site_name)}</span>`;
 }
 
-/** 浏览器标签页 favicon：品牌图片优先，否则用品牌 emoji 动态生成 SVG */
+/** 浏览器标签页 favicon：使用站点专用 /favicon.ico（含 16/32/48 三尺寸）。
+ *  后台若把「品牌图片」填成外链，则仍以外链为准，保留可配置性；
+ *  站内路径（如 /brand-icon.png）一律走 ico，避免横版字标缩成小图标。 */
 function buildFaviconHTML(s) {
-  return s.brand_image
-    ? `<link rel="icon" type="image/png" href="${esc(s.brand_image)}">`
-    : `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${s.brand_icon || '🧭'}</text></svg>`)}">`;
+  const img = String(s.brand_image || '').trim();
+  return /^https?:\/\//i.test(img)
+    ? `<link rel="icon" href="${esc(img)}">`
+    : '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">';
 }
 
 /** 页脚：文本 + 备案号（如有） */
@@ -259,7 +262,7 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
     .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
     .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base, s)).replace(/</g, '\\u003c')}</script>`)
-    // 社交分享用横版完整 LOGO（1200×630），顶栏/favicon 仍用正方形 brand-icon.png
+    // 社交分享用横版完整 LOGO（1200×630）；顶栏用 brand-icon.png，标签页图标用 favicon.ico
     .replaceAll('<!--SSR_OG_IMAGE-->', `<meta property="og:image" content="${esc(base + '/brand-logo.png')}">`)
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)

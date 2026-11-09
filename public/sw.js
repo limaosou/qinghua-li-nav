@@ -5,9 +5,10 @@
  *  - /api/*：网络优先，失败回退缓存（数据接口尽量实时）
  *  - 静态资源（js/css/png/webmanifest）：缓存优先
  */
-// 换品牌 LOGO 后必须提升版本号，否则老访客的离线缓存会一直返回旧图标
-const CACHE = 'navhub-v2';
-const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/manifest.webmanifest'];
+// 换品牌 LOGO / favicon 后必须提升版本号：静态资源是缓存优先，
+// 旧缓存里可能还存着 /favicon.ico 的 404 响应，不升版本会一直显示不出图标
+const CACHE = 'navhub-v3';
+const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
