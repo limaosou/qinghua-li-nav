@@ -197,13 +197,21 @@ function buildJSONLD(data, base, s) {
 }
 
 /** 生成首页 HTML（SSR） */
-/** 品牌区（图片/emoji + 站名），首页与分类页共用 */
+/** 品牌区（横版 LOGO + 站名），首页与分类页共用。
+ *  顶栏改用完整 QHL 字标，高度撑满 36px（旧 32×32 方块里图案只有 12px 高）。
+ *  浅色底用蓝线版，深色底用白线反白版，靠 Tailwind 的 dark: 类切换；
+ *  后台若把「品牌图片」填成外链，则仍以外链为准。 */
 function buildBrandHTML(s) {
-  return s.brand_image
-    ? `<img src="${esc(s.brand_image)}" alt="${esc(s.site_name)}" decoding="async" class="w-8 h-8 rounded-xl object-cover shadow-sm">`
-      + `<span>${esc(s.site_name)}</span>`
-    : `<span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white flex items-center justify-center shadow-sm text-base">${esc(s.brand_icon || '🧭')}</span>`
-      + `<span>${esc(s.site_name)}</span>`;
+  const raw = String(s.brand_image || '').trim();
+  const cls = 'h-8 sm:h-9 w-auto max-w-[110px] shrink-0 object-contain';
+  const inline =
+      `<img src="/brand-logo-light.png" alt="${esc(s.site_name)}" decoding="async" class="${cls} dark:hidden">`
+    + `<img src="/brand-logo-dark.png" alt="${esc(s.site_name)}" decoding="async" class="${cls} hidden dark:block">`;
+  // 旧默认值（空或 /brand-icon.png）一律走内置横版双图
+  const img = (!raw || raw === '/brand-icon.png')
+    ? inline
+    : `<img src="${esc(raw)}" alt="${esc(s.site_name)}" decoding="async" class="h-9 w-auto max-w-[132px] shrink-0 object-contain">`;
+  return img + `<span>${esc(s.site_name)}</span>`;
 }
 
 /** 浏览器标签页 favicon：使用站点专用 /favicon.ico（含 16/32/48 三尺寸）。
@@ -262,7 +270,7 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
     .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
     .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base, s)).replace(/</g, '\\u003c')}</script>`)
-    // 社交分享用横版完整 LOGO（1200×630）；顶栏用 brand-icon.png，标签页图标用 favicon.ico
+    // 社交分享用横版白底 LOGO（1200×630）；顶栏用横版浅/深双图，标签页图标用 favicon.ico
     .replaceAll('<!--SSR_OG_IMAGE-->', `<meta property="og:image" content="${esc(base + '/brand-logo.png')}">`)
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)

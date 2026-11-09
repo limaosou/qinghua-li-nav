@@ -6,9 +6,9 @@
  *  - 静态资源（js/css/png/webmanifest）：缓存优先
  */
 // 换品牌 LOGO / favicon 后必须提升版本号：静态资源是缓存优先，
-// 旧缓存里可能还存着 /favicon.ico 的 404 响应，不升版本会一直显示不出图标
-const CACHE = 'navhub-v3';
-const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/manifest.webmanifest'];
+// 旧缓存里可能还存着 /favicon.ico 的 404 响应或旧版 LOGO，不升版本会一直显示旧图
+const CACHE = 'navhub-v4';
+const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
