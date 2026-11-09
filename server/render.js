@@ -226,6 +226,37 @@ function buildFaviconHTML(s) {
     : '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">';
 }
 
+/**
+ * 首页「推荐站点」弹窗里的友情链接前提卡片。
+ * 收录条件：访客须先在自家站点加上本站友链；这里给出名称 / 地址 / 介绍供一键复制。
+ * 名称与介绍后台可配（friend_link_name / friend_link_intro），地址取当前站点绝对域名。
+ */
+function buildFriendLinkHTML(base, s) {
+  const name = String(s.friend_link_name || s.site_name || '').trim() || '本站';
+  const intro = String(s.friend_link_intro || s.site_description || '').trim();
+  const url = base + '/';
+  const linkHTML = `<a href="${esc(url)}" target="_blank" title="${esc(intro)}">${esc(name)}</a>`;
+  const row = (label, value) => `
+          <div class="flex items-start gap-2">
+            <span class="shrink-0 w-9 pt-0.5 text-[11px] text-amber-700/70 dark:text-amber-200/60">${label}</span>
+            <span class="min-w-0 flex-1 break-all text-[11px] leading-5 font-medium text-amber-900 dark:text-amber-100">${esc(value)}</span>
+            <button type="button" data-copy="${esc(value)}" class="shrink-0 px-2 py-0.5 rounded-lg text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-500/15 hover:bg-amber-200/80 dark:hover:bg-amber-500/25 transition-colors cursor-pointer copy-btn">复制</button>
+          </div>`;
+  return `<div class="mb-4 rounded-xl border border-amber-200/80 dark:border-amber-500/25 bg-amber-50/70 dark:bg-amber-500/10 p-3.5">
+    <div class="flex items-start gap-2">
+      <i data-lucide="link-2" class="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"></i>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-semibold text-amber-800 dark:text-amber-300">收录前提：请先添加本站友情链接</p>
+        <p class="mt-1 text-[11px] leading-5 text-amber-700/85 dark:text-amber-200/75">请先在贵站友情链接处放上本站信息，再提交推荐；未添加友链的投稿不予审核。</p>
+        <div class="mt-2.5 space-y-2 rounded-lg bg-white/60 dark:bg-black/10 p-2.5">
+          ${row('名称', name)}${row('地址', url)}${row('介绍', intro)}
+        </div>
+        <button type="button" data-copy="${esc(linkHTML)}" class="mt-2.5 w-full py-1.5 rounded-lg text-[11px] font-medium text-amber-800 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-500/15 hover:bg-amber-200/80 dark:hover:bg-amber-500/25 transition-colors cursor-pointer copy-btn">复制友链 HTML 代码</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /** 页脚：文本 + 备案号（如有） */
 function buildFooterHTML(s) {
   const icp = String(s.icp || '').trim()
@@ -250,6 +281,7 @@ function renderNavPage(req) {
   // 品牌图标与 favicon（共用函数）
   const brandHTML = buildBrandHTML(s);
   const faviconHTML = buildFaviconHTML(s);
+  const friendLinkHTML = buildFriendLinkHTML(base, s);
 
   const announceHTML = String(s.announcement || '').trim()
     ? `<div class="max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-sm text-indigo-700 dark:text-indigo-300">
@@ -276,6 +308,7 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_OG_IMAGE-->', `<meta property="og:image" content="${esc(base + '/brand-logo.png')}">`)
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)
+    .replaceAll('<!--SSR_FRIEND_LINK-->', friendLinkHTML)
     .replaceAll('<!--SSR_NAV_LINKS-->', navLinksHTML)
     .replaceAll('<!--SSR_BRAND-->', brandHTML)
     .replaceAll('<!--SSR_ANNOUNCEMENT-->', announceHTML)

@@ -17,6 +17,9 @@ const DEFAULTS = {
   brand_icon: '🦝',                                    // emoji 或图片 URL（http 开头当图片用）
   brand_image: '',                                     // 品牌图片，优先于 brand_icon
   announcement: '',                                    // 公告通知，留空不显示
+  // 推荐投稿：友情链接前提（首页「推荐站点」弹窗展示本站友链信息，供对方复制后加链）
+  friend_link_name: '青花狸导航',
+  friend_link_intro: '青花狸导航 — 简洁好用的中文网址导航，分类收录常用网站、开发工具、影视娱乐与学习资源。',
   // SEO 配置
   robots_txt: 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n',
   // 搜索配置

@@ -310,6 +310,16 @@ tailwind.config = {
         </div>
       </div>
 
+      <!-- 友情链接（推荐投稿前提） -->
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+        <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="link-2" class="w-4 h-4 text-indigo-500"></i>友情链接（推荐投稿前提）</h3>
+        <p class="text-xs text-slate-400 mb-3">首页「推荐站点」弹窗会提示访客先添加本站友情链接，并展示下面两项信息供一键复制。链接地址自动取当前站点域名，无需填写。</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label class="text-xs text-slate-400 space-y-1">友链名称<input id="set_friend_link_name" placeholder="青花狸导航" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition"></label>
+          <label class="text-xs text-slate-400 space-y-1">友链介绍<textarea id="set_friend_link_intro" rows="2" class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition resize-none"></textarea></label>
+        </div>
+      </div>
+
       <!-- 图标本地化 -->
       <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
         <h3 class="text-sm font-semibold mb-1 flex items-center gap-1.5"><i data-lucide="image-down" class="w-4 h-4 text-indigo-500"></i>图标本地化</h3>
@@ -1180,6 +1190,7 @@ $('exportBtn').addEventListener('click', async () => {
 /* ============ 站点配置 ============ */
 const SET_FIELDS = ['site_name', 'site_title', 'site_subtitle', 'site_description', 'site_keywords',
   'footer_text', 'icp', 'announcement', 'brand_icon', 'brand_image', 'custom_head', 'site_detail_enabled',
+  'friend_link_name', 'friend_link_intro',
   'stats_demo_enabled', 'stats_demo_threshold', 'icon_auto_localize'];
 
 async function loadSettings() {

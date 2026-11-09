@@ -7,7 +7,7 @@
  */
 // 换品牌 LOGO / favicon / SSR 页面结构后必须提升版本号：静态资源是缓存优先，
 // 旧缓存里可能还存着 /favicon.ico 的 404 响应、旧版 LOGO 或旧版页面 HTML
-const CACHE = 'navhub-v5';
+const CACHE = 'navhub-v6';
 const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
