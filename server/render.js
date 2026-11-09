@@ -259,7 +259,8 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
     .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
     .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base, s)).replace(/</g, '\\u003c')}</script>`)
-    .replaceAll('<!--SSR_OG_IMAGE-->', s.brand_image ? `<meta property="og:image" content="${esc(base + s.brand_image)}">` : '')
+    // 社交分享用横版完整 LOGO（1200×630），顶栏/favicon 仍用正方形 brand-icon.png
+    .replaceAll('<!--SSR_OG_IMAGE-->', `<meta property="og:image" content="${esc(base + '/brand-logo.png')}">`)
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)
     .replaceAll('<!--SSR_NAV_LINKS-->', navLinksHTML)
