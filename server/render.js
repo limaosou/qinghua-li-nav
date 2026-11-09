@@ -211,7 +211,9 @@ function buildBrandHTML(s) {
   const img = (!raw || raw === '/brand-icon.png')
     ? inline
     : `<img src="${esc(raw)}" alt="${esc(s.site_name)}" decoding="async" class="h-9 w-auto max-w-[132px] shrink-0 object-contain">`;
-  return img + `<span>${esc(s.site_name)}</span>`;
+  // 站名与横版 LOGO 字母视觉等高：手机 LOGO 高 32px -> 28px 字；桌面 36px -> 32px 字。
+  // 显式字号/行高/字重覆盖各模板父级不一致的 text-lg / text-sm / font-semibold，五页保持统一。
+  return img + `<span class="brand-name text-[28px] sm:text-[32px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
 }
 
 /** 浏览器标签页 favicon：使用站点专用 /favicon.ico（含 16/32/48 三尺寸）。

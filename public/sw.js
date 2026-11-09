@@ -5,9 +5,9 @@
  *  - /api/*：网络优先，失败回退缓存（数据接口尽量实时）
  *  - 静态资源（js/css/png/webmanifest）：缓存优先
  */
-// 换品牌 LOGO / favicon 后必须提升版本号：静态资源是缓存优先，
-// 旧缓存里可能还存着 /favicon.ico 的 404 响应或旧版 LOGO，不升版本会一直显示旧图
-const CACHE = 'navhub-v4';
+// 换品牌 LOGO / favicon / SSR 页面结构后必须提升版本号：静态资源是缓存优先，
+// 旧缓存里可能还存着 /favicon.ico 的 404 响应、旧版 LOGO 或旧版页面 HTML
+const CACHE = 'navhub-v5';
 const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -36,8 +36,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 页面：网络优先，离线回退缓存页
-  if (url.pathname === '/' || url.pathname.startsWith('/cat') || url.pathname === '/about') {
+  // 页面（含详情页 / 地图页 / 后台）：网络优先，离线回退缓存页。
+  // SSR 页面内容会随版本变化，不能走「静态资源：缓存优先」，否则老访客一直看到旧 HTML
+  const isPage = url.pathname === '/' || url.pathname === '/about' || url.pathname === '/admin'
+    || url.pathname === '/sitemap.html' || url.pathname.startsWith('/cat') || url.pathname.startsWith('/site');
+  if (isPage) {
     e.respondWith(
       fetch(req)
         .then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return r; })
