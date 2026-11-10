@@ -216,14 +216,17 @@ function buildBrandHTML(s) {
   return img + `<span class="brand-name text-[28px] sm:text-[32px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
 }
 
-/** 浏览器标签页 favicon：使用站点专用 /favicon.ico（含 16/32/48 三尺寸）。
- *  后台若把「品牌图片」填成外链，则仍以外链为准，保留可配置性；
- *  站内路径（如 /brand-icon.png）一律走 ico，避免横版字标缩成小图标。 */
+/** 浏览器标签页 favicon：透明底 Q 猫头，浅色亮蓝 / 深色白反版按系统主题自动切换。
+ *  两个 link 用 media 互斥：深色主题只加载 -dark 版，浅色/无偏好只加载默认版。
+ *  图标全部为 PNG 帧（含 16~256 六尺寸），白底已抠成透明，能融入标签栏/新标签页。
+ *  后台若把「品牌图片」填成外链，则仍以外链为准，保留可配置性。 */
 function buildFaviconHTML(s) {
   const img = String(s.brand_image || '').trim();
-  return /^https?:\/\//i.test(img)
-    ? `<link rel="icon" href="${esc(img)}">`
-    : '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon">';
+  if (/^https?:\/\//i.test(img)) return `<link rel="icon" href="${esc(img)}">`;
+  const attrs = 'sizes="16x16 32x32 48x48 64x64 128x128 256x256" type="image/x-icon"';
+  // light 也覆盖「用户未表达偏好」的默认场景，两条互斥，任何时刻只有一条被加载
+  return `<link rel="icon" href="/favicon.ico" media="(prefers-color-scheme: light)" ${attrs}>\n`
+       + `<link rel="icon" href="/favicon-dark.ico" media="(prefers-color-scheme: dark)" ${attrs}>`;
 }
 
 /**
@@ -304,7 +307,7 @@ function renderNavPage(req) {
     .replaceAll('<!--SSR_SITE_NAME-->', esc(s.site_name))
     .replaceAll('<!--SSR_CANONICAL-->', esc(base + '/'))
     .replaceAll('<!--SSR_JSONLD-->', `<script type="application/ld+json">${JSON.stringify(buildJSONLD(data, base, s)).replace(/</g, '\\u003c')}</script>`)
-    // 社交分享用横版白底 LOGO（1200×630）；顶栏用横版浅/深双图，标签页图标用 favicon.ico
+    // 社交分享用横版白底 LOGO（1200×630）；顶栏用横版浅/深双图，标签页图标用透明底 favicon 浅/深双版
     .replaceAll('<!--SSR_OG_IMAGE-->', `<meta property="og:image" content="${esc(base + '/brand-logo.png')}">`)
     .replaceAll('<!--SSR_CUSTOM_HEAD-->', String(s.custom_head || ''))
     .replaceAll('<!--SSR_FAVICON-->', faviconHTML)
