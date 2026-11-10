@@ -7,8 +7,10 @@
  */
 // 换品牌 LOGO / favicon / SSR 页面结构后必须提升版本号：静态资源是缓存优先，
 // 旧缓存里可能还存着 /favicon.ico 的 404 响应、白底旧图标或旧版页面 HTML
-const CACHE = 'navhub-v7';
-const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
+// v8：新增 iPhone 主屏幕图标 /apple-touch-icon.png 与主题同步脚本 /ios-chrome.js，
+// 并把 iOS 相关 meta 收敛进 SSR 输出，必须升版本让老访客丢掉旧页面壳。
+const CACHE = 'navhub-v8';
+const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/apple-touch-icon.png', '/ios-chrome.js', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

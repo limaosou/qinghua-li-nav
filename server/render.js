@@ -216,17 +216,40 @@ function buildBrandHTML(s) {
   return img + `<span class="brand-name text-[28px] sm:text-[32px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
 }
 
-/** 浏览器标签页 favicon：透明底 Q 猫头，浅色亮蓝 / 深色白反版按系统主题自动切换。
- *  两个 link 用 media 互斥：深色主题只加载 -dark 版，浅色/无偏好只加载默认版。
- *  图标全部为 PNG 帧（含 16~256 六尺寸），白底已抠成透明，能融入标签栏/新标签页。
- *  后台若把「品牌图片」填成外链，则仍以外链为准，保留可配置性。 */
+/** 页面 <head> 里「浏览器标签页 + 手机主屏幕」外观的统一出口。
+ *  五个前台模板共用 <!--SSR_FAVICON--> 占位符，改这里就能全站生效。
+ *
+ *  ① 标签页 favicon：透明底 Q 猫头，浅/深按系统主题互斥切换，能融入标签栏与新标签页。
+ *  ② iPhone 主屏幕：apple-touch-icon 必须是 180×180 **不透明满版** PNG。
+ *     iOS 会把透明像素渲染成黑色，还会把图标裁成圆角超椭圆，
+ *     所以不能复用透明底 brand-icon.png / favicon.ico，专门做了 apple-touch-icon.png。
+ *     iOS 不认 media 切换，只能给一枚固定图标（深浅壁纸都清晰的版本）。
+ *  ③ apple-mobile-web-app-*：主屏幕全屏启动、状态栏样式、图标下方的名字（跟随后台站名）。
+ *  ④ theme-color 双值兜底；实际颜色由 /ios-chrome.js 跟随用户手动切换的主题实时更新。
+ *  ⑤ 刘海/圆角屏安全区 CSS：配合 viewport-fit=cover，横屏时内容不被灵动岛与圆角遮住。
+ *
+ *  后台「品牌图片」填外链时只影响标签页 favicon；主屏幕图标与顶栏仍用内置方形图，
+ *  因为横版 LOGO 比例不定，拿来当方形图标会被拉伸裁切。 */
 function buildFaviconHTML(s) {
   const img = String(s.brand_image || '').trim();
-  if (/^https?:\/\//i.test(img)) return `<link rel="icon" href="${esc(img)}">`;
   const attrs = 'sizes="16x16 32x32 48x48 64x64 128x128 256x256" type="image/x-icon"';
   // light 也覆盖「用户未表达偏好」的默认场景，两条互斥，任何时刻只有一条被加载
-  return `<link rel="icon" href="/favicon.ico" media="(prefers-color-scheme: light)" ${attrs}>\n`
-       + `<link rel="icon" href="/favicon-dark.ico" media="(prefers-color-scheme: dark)" ${attrs}>`;
+  const tabIcons = /^https?:\/\//i.test(img)
+    ? `<link rel="icon" href="${esc(img)}">`
+    : `<link rel="icon" href="/favicon.ico" media="(prefers-color-scheme: light)" ${attrs}>\n`
+      + `<link rel="icon" href="/favicon-dark.ico" media="(prefers-color-scheme: dark)" ${attrs}>`;
+  const appName = String(s.site_name || '').trim() || '青花狸';
+  return `${tabIcons}
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="${esc(appName)}">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+<style>body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+#backTop{bottom:calc(1.5rem + env(safe-area-inset-bottom,0px))}
+#suggestModal{padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}</style>
+<script src="/ios-chrome.js" defer></script>`;
 }
 
 /**
