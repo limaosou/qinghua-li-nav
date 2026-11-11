@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>热搜榜聚合 · 实时热门搜索一览</title>
+  <meta name="description" content="聚合百度、微博、知乎、抖音、B站、头条、36氪、微信等平台实时热门搜索排行榜。" />
+  <link rel="stylesheet" href="assets/style.css?v=20261111c" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🔥</span>
+      <div class="brand-text">
+        <h1>热搜榜聚合</h1>
+        <p>实时聚合各大平台热门搜索</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="updated" class="updated">加载中…</span>
+      <button id="toggle-hidden" class="btn-refresh" title="查看被自动隐藏的暂不可用站点">显示全部</button>
+      <button id="refresh" class="btn-refresh">刷新</button>
+    </div>
+  </header>
+
+  <!-- 模式提示：生产模式禁用示例，预览模式允许示例。文案由 app.js 填充 -->
+  <div id="mode-note" class="mode-note"></div>
+
+  <!-- 导航栏：切换各站热搜 -->
+  <nav id="tabs" class="tabs" aria-label="平台切换"></nav>
+
+  <main id="boards" class="boards"></main>
+
+  <footer class="foot">
+    <p>数据来自公开聚合接口（vvhan / imsyy / codelife）、各平台官方开放 API 及公共 CORS 代理；榜单内容版权归各平台所有，仅供学习参考。生产模式下接口不可用时显示「暂无数据」，不展示虚构内容。可嵌入任意网站导航栏，详见 README。</p>
+  </footer>
+
+  <!-- config.js 必须最先加载 -->
+  <script src="assets/config.js?v=20261111c"></script>
+  <script src="assets/sources.js?v=20261111c"></script>
+  <!-- 生产模式连示例数据都不加载：省一个请求，也从根本上杜绝虚构内容被渲染 -->
+  <script>
+    if (window.HotBoardConfig && !window.HotBoardConfig.PRODUCTION) {
+      document.write('<script src="assets/sample.js?v=20261111c"><\/script>');
+    }
+  </script>
+  <script src="assets/app.js?v=20261111c"></script>
+</body>
+</html>

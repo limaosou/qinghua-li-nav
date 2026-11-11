@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>数据源自检 · HotBoard</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f5f7fb; --card: #fff; --line: #e5e9f0; --text: #1f2329;
+      --muted: #7a8290; --blue: #2563eb; --ok: #07a050; --bad: #d64545;
+      --warn: #b7791f; --code: rgba(125,125,125,.10);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #14161c; --card: #1e2128; --line: #2c313b; --text: #e8eaed;
+        --muted: #929aa8; --blue: #6d9bff; --ok: #3ecf8e; --bad: #ff7b7b;
+        --warn: #e6b35c; --code: rgba(255,255,255,.08);
+      }
+    }
+    body {
+      margin: 0; background: var(--bg); color: var(--text); line-height: 1.6;
+      font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 60px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 0 0 10px; }
+    p { margin: 0; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 16px 18px; margin-bottom: 16px;
+    }
+    .alert {
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 13px; line-height: 1.7;
+      background: rgba(183,121,31,.10); color: var(--warn);
+      border: 1px solid rgba(183,121,31,.28);
+    }
+    .alert.good { background: rgba(7,160,80,.09); color: var(--ok); border-color: rgba(7,160,80,.25); }
+    .env { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 24px; font-size: 13px; }
+    .env div { display: flex; gap: 8px; min-width: 0; }
+    .env b { color: var(--muted); font-weight: 500; flex: 0 0 76px; }
+    .env span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    button {
+      font: inherit; font-size: 13px; cursor: pointer; border-radius: 8px;
+      padding: 8px 16px; border: 1px solid var(--line); background: var(--card); color: var(--text);
+    }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button:not(:disabled):hover { filter: brightness(.96); }
+    label.chk { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .status { font-size: 13px; color: var(--muted); margin-left: auto; }
+    .bar { height: 5px; background: var(--code); border-radius: 99px; overflow: hidden; margin-top: 14px; }
+    .bar i { display: block; height: 100%; width: 0; background: var(--blue); transition: width .2s; }
+    .summary { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: 13px; align-items: baseline; }
+    .summary .big { font-size: 19px; font-weight: 700; }
+    .ok-t { color: var(--ok); } .bad-t { color: var(--bad); } .warn-t { color: var(--warn); }
+    .tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 940px; }
+    th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; white-space: nowrap; background: var(--code); }
+    tr:last-child td { border-bottom: 0; }
+    tr.bad td { background: rgba(214,69,69,.045); }
+    td.num { color: var(--muted); white-space: nowrap; }
+    td.name { font-weight: 600; white-space: nowrap; }
+    td.key { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    td.title { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td.reason { color: var(--muted); font-size: 12px; max-width: 260px; word-break: break-all; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+    .pill.ok { background: rgba(7,160,80,.12); color: var(--ok); }
+    .pill.bad { background: rgba(214,69,69,.12); color: var(--bad); }
+    .pill.warn { background: rgba(183,121,31,.14); color: var(--warn); }
+    pre {
+      background: var(--code); border: 1px solid var(--line); border-radius: 8px;
+      padding: 12px 14px; font: 12px/1.7 ui-monospace, Consolas, monospace;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0 0 12px;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .notes { font-size: 13px; color: var(--muted); }
+    .notes li { margin: 6px 0; }
+    .notes code, .sub code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+    a { color: var(--blue); text-decoration: none; }
+    .files { font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .files span { border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>数据源自检 · HotBoard</h1>
+  <p class="sub">逐站强制回源取数，列出通 / 不通、条数、耗时与失败原因。<b>请务必在部署后的线上域名下打开本页</b>，结果才代表真实访客环境。</p>
+
+  <div id="envAlert"></div>
+
+  <section class="card">
+    <h2>当前环境</h2>
+    <div class="env" id="env"></div>
+    <div class="files" id="files"></div>
+  </section>
+
+  <section class="card">
+    <div class="controls">
+      <button id="run" class="primary">开始自检</button>
+      <button id="copyWl" disabled>复制白名单配置</button>
+      <button id="copyJson" disabled>复制完整 JSON</button>
+      <button id="download" disabled>下载 JSON</button>
+      <label class="chk"><input type="checkbox" id="onlyFailed" /> 只看失败</label>
+      <span class="status" id="status">尚未运行 · 支持 <code>?run=1</code> 自动开始</span>
+    </div>
+    <div class="bar"><i id="barFill"></i></div>
+  </section>
+
+  <section class="card summary" id="summary">
+    <span class="big">—</span><span>点击「开始自检」后，这里会显示完整率与耗时。</span>
+  </section>
+
+  <div class="tablebox">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>结果</th><th>站点</th><th>key</th><th>条数</th>
+          <th>耗时</th><th>来源</th><th>首条标题</th><th>失败原因</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <section class="card" id="wlCard" style="margin-top:16px">
+    <h2>建议白名单（仅基于本次这台设备 / 这个浏览器）</h2>
+    <p class="sub" style="margin-bottom:10px">
+      把下面这段粘进 <code>assets/config.js</code> 的 <code>ENABLED_SOURCES</code>，可永久只启用本次测通的站点，请求数也会随之下降。
+      <b>换网络环境结果会变</b>，建议多设备 / 多网络各跑一次再定。
+    </p>
+    <pre id="whitelist">尚未运行</pre>
+    <div class="actions">
+      <button id="openBoard">打开全站看板 ↗</button>
+      <button id="rerun">重新自检</button>
+    </div>
+  </section>
+
+  <section class="card notes">
+    <h2>怎么读这份结果</h2>
+    <ul>
+      <li><b>这是浏览器侧测试</b>：28 个外部请求全部由当前浏览器发出，服务器只托管静态文件。所以本机 / 沙箱 / 线上 / 不同地区的访客，结果都可能不同，甚至相反。</li>
+      <li><b>通</b> = 本轮拿到真实数据；<b>不通</b> = 接口超时、返回空、被网络拦截、CORS 拒绝或代理限流。生产模式下不通的站点会被自动隐藏，不会显示虚构内容。</li>
+      <li><b>常见原因</b>：<code>HTTP 403/404</code> 接口不支持该站；<code>empty</code> 返回空列表；<code>AbortError / timeout</code> 超时或域名不通；<code>Failed to fetch</code> 多为 CORS 或被浏览器拦截；<code>load failed</code> 代理没响应。</li>
+      <li><b>静态文件检查</b>显示部署是否传全；<code>/hotboard/hotboard-inject.min.js</code> 只在已上线时检查，本地预览会跳过。</li>
+      <li>自检强制跳过 5 分钟缓存（<code>force: true</code>），结果不会被旧缓存污染，也不会写入缓存。</li>
+      <li>想让所有访客看到一致的站点数，只能上服务端聚合（把外部请求收敛到自己域名下）。</li>
+    </ul>
+    <p style="margin-top:10px">
+      相关文档：<a href="README.md">README.md</a> ·
+      部署与回撤步骤见项目本地的 <code>deploy/DEPLOY.md</code> 与 <code>BACKUP-NOTES.md</code>（无需上传）。
+    </p>
+  </section>
+</div>
+
+<script src="assets/config.js?v=20261111c"></script>
+<script src="assets/sources.js?v=20261111c"></script>
+<script>
+(function () {
+  "use strict";
+
+  var CFG = window.HotBoardConfig || {};
+  var HB = window.HotBoard;
+  var $ = function (id) { return document.getElementById(id); };
+  var rows = [], running = false, startedAt = 0;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function isDeployed() {
+    return location.protocol === "https:" &&
+      !/localhost|127\.0\.0\.1|\[::1\]/.test(location.host);
+  }
+  function shortUA() {
+    var u = navigator.userAgent;
+    var b = /Edg\//.test(u) ? "Edge" : /Chrome\//.test(u) ? "Chrome" :
+            /Firefox\//.test(u) ? "Firefox" : /Safari\//.test(u) ? "Safari" : "浏览器";
+    var os = /Windows/.test(u) ? "Windows" : /Android/.test(u) ? "Android" :
+             /iPhone|iPad/.test(u) ? "iOS" : /Mac/.test(u) ? "macOS" : /Linux/.test(u) ? "Linux" : "其他";
+    return b + " · " + os;
+  }
+
+  function renderEnv() {
+    var deployed = isDeployed();
+    $("envAlert").className = "alert" + (deployed ? " good" : "");
+    $("envAlert").innerHTML = deployed
+      ? "✅ 当前运行在 <b>https 线上域名</b>下，本次结果可代表这台设备访问线上时的真实可达性。注意：不同地区 / 网络 / 设备的访客结果仍可能不同。"
+      : "⚠️ 当前是 <b>本地 / 非 https 环境</b>，结果<b>不能</b>代表线上访客。请把本页随 <code>/hotboard/</code> 一起部署后，用线上域名打开再跑一次。";
+
+    var items = [
+      ["页面地址", location.href],
+      ["协议", location.protocol],
+      ["运行位置", deployed ? "线上（https）" : "本地 / 预览"],
+      ["浏览器", shortUA()],
+      ["生产模式", CFG.PRODUCTION === false ? "false（允许示例）" : "true（禁用示例）"],
+      ["并发上限", String(CFG.CONCURRENCY || 5)],
+      ["普通/代理超时", (CFG.REQUEST_TIMEOUT || 9000) + " / " + (CFG.PROXY_TIMEOUT || 15000) + " ms"],
+      ["站点总数", HB ? String(HB.activeSources().length) : "未加载"],
+      ["资源版本", String(CFG.ASSET_VERSION || "未加载")],
+      ["本地时间", new Date().toLocaleString("zh-CN")]
+    ];
+    $("env").innerHTML = items.map(function (x) {
+      return "<div><b>" + esc(x[0]) + "</b><span title=\"" + esc(x[1]) + "\">" + esc(x[1]) + "</span></div>";
+    }).join("");
+
+    if (!HB) {
+      $("files").innerHTML = "<span class=\"pill bad\">sources.js 未加载成功</span>";
+      $("run").disabled = true;
+      $("status").textContent = "依赖加载失败，请检查 /hotboard/assets/ 是否上传完整";
+    } else {
+      checkFiles();
+    }
+  }
+
+  // 静态文件是否传全：部署验收的第一步
+  function checkFiles() {
+    var list = [
+      "assets/config.js", "assets/sources.js", "assets/app.js",
+      "assets/widget.js", "assets/embed.js", "index.html", "widget.html"
+    ];
+    if (isDeployed()) list.push("/hotboard/hotboard-inject.min.js");
+    var box = $("files");
+    box.innerHTML = "<span class=\"pill warn\">静态文件检查中…</span>";
+    Promise.all(list.map(function (p) {
+      return fetch(p, { cache: "no-store" }).then(function (r) {
+        return { path: p, ok: r.ok, code: r.status };
+      }).catch(function (e) {
+        return { path: p, ok: false, code: "ERR" };
+      });
+    })).then(function (res) {
+      var bad = res.filter(function (x) { return !x.ok; });
+      box.innerHTML = res.map(function (x) {
+        return "<span class=\"pill " + (x.ok ? "ok" : "bad") + "\">" +
+          esc(x.path) + " · " + esc(x.code) + "</span>";
+      }).join("") +
+        "<span class=\"pill " + (bad.length ? "warn" : "ok") + "\">" +
+        (res.length - bad.length) + "/" + res.length + " 可用" +
+        (bad.length ? "（缺的先补齐再跑自检）" : "") + "</span>";
+    });
+  }
+
+  function addRow(i, source, r, ms) {
+    var list = (r && r.list) || [];
+    var ok = !!(r && r.ok && list.length);
+    var reason = ok ? "" : (r && r.error) || "接口不可达 / 被浏览器拦截（无具体错误）";
+    var first = list[0] ? list[0].title : "";
+    var provider = r && r.provider ? r.provider : "—";
+    var tr = document.createElement("tr");
+    tr.className = ok ? "ok" : "bad";
+    tr.setAttribute("data-status", ok ? "ok" : "bad");
+    tr.innerHTML =
+      "<td class=\"num\">" + i + "</td>" +
+      "<td><span class=\"pill " + (ok ? "ok" : "bad") + "\">" + (ok ? "通" : "不通") + "</span></td>" +
+      "<td class=\"name\">" + esc(source.name) + "</td>" +
+      "<td class=\"key\">" + esc(source.key) + "</td>" +
+      "<td class=\"num\">" + list.length + "</td>" +
+      "<td class=\"num\">" + (ms == null ? "—" : ms + " ms") + "</td>" +
+      "<td class=\"key\">" + esc(provider) + "</td>" +
+      "<td class=\"title\" title=\"" + esc(first) + "\">" + esc(first) + "</td>" +
+      "<td class=\"reason\">" + esc(reason) + "</td>";
+    $("rows").appendChild(tr);
+    applyFilter();
+    return {
+      key: source.key, name: source.name, ok: ok, count: list.length,
+      ms: ms == null ? null : ms, provider: provider,
+      first: first, reason: reason
+    };
+  }
+
+  function applyFilter() {
+    var only = $("onlyFailed").checked;
+    var trs = $("rows").querySelectorAll("tr");
+    for (var i = 0; i < trs.length; i++) {
+      trs[i].style.display = (only && trs[i].getAttribute("data-status") !== "bad") ? "none" : "";
+    }
+  }
+
+  function updateProgress(done, total, elapsed) {
+    $("barFill").style.width = (done / total * 100).toFixed(1) + "%";
+    $("status").textContent = "进行中 " + done + "/" + total + " · " + (elapsed / 1000).toFixed(1) + "s";
+  }
+
+  function finish(totalMs, sources) {
+    var ok = rows.filter(function (x) { return x.ok; });
+    var bad = rows.filter(function (x) { return !x.ok; });
+    var rate = rows.length ? Math.round(ok.length / rows.length * 100) : 0;
+    $("summary").innerHTML =
+      "<span class=\"big\">" + rate + "%</span>" +
+      "<span>数据完整率 · 共 " + rows.length + " 站</span>" +
+      "<span class=\"ok-t\">通 " + ok.length + "</span>" +
+      "<span class=\"bad-t\">不通 " + bad.length + "</span>" +
+      "<span>总耗时 " + (totalMs / 1000).toFixed(1) + "s</span>" +
+      "<span class=\"warn-t\">线上将隐藏 " + bad.length + " 站</span>" +
+      "<span>" + esc(new Date().toLocaleString("zh-CN")) + "</span>";
+    $("status").textContent = "完成 · " + (totalMs / 1000).toFixed(1) + "s";
+    $("barFill").style.width = "100%";
+
+    var keys = ok.map(function (x) { return x.key; }).sort();
+    $("whitelist").textContent = keys.length
+      ? "// 本次测通 " + keys.length + " 站（" + location.host + "，仅代表当前环境）\nENABLED_SOURCES: [" +
+        keys.map(function (k) { return "\"" + k + "\""; }).join(", ") + "],"
+      : "// 本次 0 站测通，不要启用白名单（否则页面全空）。\n// 先排查网络 / CORS / 代理，或保持 ENABLED_SOURCES: null。";
+
+    ["copyWl", "copyJson", "download"].forEach(function (id) { $(id).disabled = false; });
+    window.__selfcheck = {
+      time: new Date().toISOString(), url: location.href, host: location.host,
+      deployed: isDeployed(), ua: navigator.userAgent,
+      version: CFG.ASSET_VERSION || null, production: CFG.PRODUCTION !== false,
+      totalMs: totalMs, total: rows.length, okCount: ok.length,
+      failCount: bad.length, okKeys: keys, results: rows
+    };
+  }
+
+  function jsonText() {
+    return JSON.stringify(window.__selfcheck || {}, null, 2);
+  }
+  function copy(text, btn) {
+    var done = function () {
+      var old = btn.textContent; btn.textContent = "已复制 ✓";
+      setTimeout(function () { btn.textContent = old; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { /* 忽略 */ }
+      document.body.removeChild(ta);
+    }
+  }
+
+  async function run() {
+    if (running || !HB) return;
+    running = true;
+    rows = [];
+    startedAt = Date.now();
+    $("rows").innerHTML = "";
+    $("barFill").style.width = "0";
+    $("run").disabled = true;
+    ["copyWl", "copyJson", "download"].forEach(function (id) { $(id).disabled = true; });
+    $("summary").innerHTML = "<span class=\"big\">…</span><span>正在强制回源取数，请稍候（并发 " + (CFG.CONCURRENCY || 5) + "）</span>";
+
+    var sources = HB.activeSources();
+    var done = 0;
+    await HB.getMany(sources, function (s, r, ms) {
+      done++;
+      rows.push(addRow(done, s, r, ms));
+      updateProgress(done, sources.length, Date.now() - startedAt);
+    }, { force: true });
+
+    // 保持「完成顺序」渲染，不清空重建（避免表格跳动与重复创建 DOM）。
+    // 需要按 key 对照配置时，用「复制白名单」里已排序的输出。
+    applyFilter();
+    finish(Date.now() - startedAt, sources);
+    $("run").disabled = false;
+    $("run").textContent = "重新自检";
+    running = false;
+  }
+
+  $("run").addEventListener("click", run);
+  $("rerun").addEventListener("click", function () { window.scrollTo(0, 0); run(); });
+  $("onlyFailed").addEventListener("change", applyFilter);
+  $("copyWl").addEventListener("click", function () { copy($("whitelist").textContent, this); });
+  $("copyJson").addEventListener("click", function () { copy(jsonText(), this); });
+  $("download").addEventListener("click", function () {
+    var blob = new Blob([jsonText()], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "hotboard-selfcheck-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  $("openBoard").addEventListener("click", function () { window.open("index.html", "_blank", "noopener"); });
+
+  renderEnv();
+  if (/(^|[?&])run=1(&|$)/.test(location.search)) run();
+})();
+</script>
+</body>
+</html>

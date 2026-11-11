@@ -18,6 +18,13 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <!--SSR_JSONLD-->
 <!--SSR_CUSTOM_HEAD-->
+<!-- 热搜聚合跑马灯（/hotboard/）。回撤时删掉下面这一行即可，主站不受影响 -->
+<script src="/hotboard/hotboard-inject.min.js"
+        data-base="/hotboard/"
+        data-anchor="#searchInput"
+        data-anchor-closest="section"
+        data-version="20261111c"
+        defer></script>
 <script>
 if (localStorage.getItem('navhub_theme') === 'dark' || (!localStorage.getItem('navhub_theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
   document.documentElement.classList.add('dark');

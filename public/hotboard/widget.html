@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>热搜 · 导航栏组件</title>
+  <link rel="stylesheet" href="assets/widget.css?v=20261111c" />
+</head>
+<body>
+  <div class="hb-bar">
+    <span class="hb-brand">🔥热搜</span>
+    <span id="wstate" class="hb-state loading" title="正在获取数据"></span>
+    <div id="wtabs" class="hb-tabs"></div>
+    <div class="hb-marquee">
+      <div id="wtrack" class="hb-track"></div>
+    </div>
+    <a class="hb-all" href="index.html" target="_blank" rel="noopener" title="查看全站热搜">全站›</a>
+    <button id="wrefresh" class="hb-refresh" title="刷新">↻</button>
+  </div>
+
+  <script src="assets/config.js?v=20261111c"></script>
+  <script src="assets/sources.js?v=20261111c"></script>
+  <script>
+    if (window.HotBoardConfig && !window.HotBoardConfig.PRODUCTION) {
+      document.write('<script src="assets/sample.js?v=20261111c"><\/script>');
+    }
+  </script>
+  <script src="assets/widget.js?v=20261111c"></script>
+</body>
+</html>

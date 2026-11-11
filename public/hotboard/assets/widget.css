@@ -1,0 +1,154 @@
+:root {
+  --hb-bg: #ffffff;
+  --hb-text: #1f2329;
+  --hb-sub: #8a8f99;
+  --hb-border: #e8eaf0;
+  --hb-accent: #ff4d4f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hb-bg: #1e2128;
+    --hb-text: #e8eaed;
+    --hb-sub: #8b909a;
+    --hb-border: #2a2e38;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: transparent;
+}
+
+/* 导航栏热搜条：默认高度 46px，可自适应父容器宽度 */
+.hb-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 12px;
+  background: var(--hb-bg);
+  color: var(--hb-text);
+  border: 1px solid var(--hb-border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.hb-brand {
+  flex: 0 0 auto;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 数据来源角标：实时 / 缓存 / 示例 / 暂无 */
+.hb-state {
+  flex: 0 0 auto;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--hb-border);
+  color: var(--hb-sub);
+  white-space: nowrap;
+}
+.hb-state.live, .hb-state.cache { color: #07a050; border-color: rgba(7,193,96,.35); }
+.hb-state.stale, .hb-state.demo { color: #d97700; border-color: rgba(255,125,0,.35); }
+.hb-state.empty, .hb-state.loading { color: var(--hb-sub); }
+.hb-none { color: var(--hb-sub); font-size: 12px; padding: 0 6px; }
+
+/* 站点较多时横向滚动，避免挤占跑马灯空间 */
+.hb-tabs {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 46%;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.hb-tabs::-webkit-scrollbar { display: none; }
+.hb-tab {
+  --c: #888;
+  flex: 0 0 auto;
+  border: 1px solid var(--hb-border);
+  background: transparent;
+  color: var(--hb-text);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.hb-tab.active { background: var(--c); border-color: var(--c); color: #fff; }
+
+/* 跑马灯区域 */
+.hb-marquee {
+  flex: 1 1 auto;
+  overflow: hidden;
+  position: relative;
+  height: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+.hb-track {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  white-space: nowrap;
+  will-change: transform;
+  animation: hb-scroll 38s linear infinite;
+}
+.hb-marquee:hover .hb-track { animation-play-state: paused; }
+
+@keyframes hb-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.hb-item {
+  color: var(--hb-text);
+  text-decoration: none;
+  padding: 0 4px;
+}
+.hb-item:hover { color: var(--hb-accent); }
+.hb-rank {
+  display: inline-block;
+  min-width: 16px;
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--hb-sub);
+}
+.hb-sep {
+  color: var(--hb-sub);
+  margin: 0 12px;
+  opacity: .5;
+}
+
+.hb-all {
+  flex: 0 0 auto;
+  color: var(--hb-accent);
+  text-decoration: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hb-refresh {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--hb-sub);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.hb-refresh:hover { color: var(--hb-accent); }
+.hb-refresh:disabled { opacity: .5; cursor: default; }
+
+/* 窄屏：隐藏站点切换，只留跑马灯 */
+@media (max-width: 520px) {
+  .hb-tabs { display: none; }
+}
