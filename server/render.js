@@ -211,9 +211,11 @@ function buildBrandHTML(s) {
   const img = (!raw || raw === '/brand-icon.png')
     ? inline
     : `<img src="${esc(raw)}" alt="${esc(s.site_name)}" decoding="async" class="h-9 w-auto max-w-[132px] shrink-0 object-contain">`;
-  // 站名与横版 LOGO 字母视觉等高：手机 LOGO 高 32px -> 28px 字；桌面 36px -> 32px 字。
-  // 显式字号/行高/字重覆盖各模板父级不一致的 text-lg / text-sm / font-semibold，五页保持统一。
-  return img + `<span class="brand-name text-[28px] sm:text-[32px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
+  // 站名刻意小于横版 LOGO：手机 LOGO 高 32px -> 20px 字；桌面 36px -> 24px 字（约 2/3 高），
+  // 让图案当主标、文字做副标。显式字号/行高/字重覆盖各模板父级不一致的
+  // text-lg / text-sm / font-semibold，五页保持统一。
+  // 改这里必须同步 buildFaviconHTML 内联首帧 CSS 的两条 .brand-name 规则，否则首帧会跳字形。
+  return img + `<span class="brand-name text-[20px] sm:text-[24px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
 }
 
 /** 全站统一字体栈（纯系统字体，无网络请求、无分片 swap）。
@@ -255,8 +257,8 @@ function buildFaviconHTML(s) {
 <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 <style>/* 首帧字体骨架：不依赖任何外部样式表，让字体度量在第一帧就是最终值 */
 html,body{font-family:${FONT_STACK};font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-.brand-name{font-size:28px;line-height:1;font-weight:700}
-@media(min-width:640px){.brand-name{font-size:32px}}
+.brand-name{font-size:20px;line-height:1;font-weight:700}
+@media(min-width:640px){.brand-name{font-size:24px}}
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 #backTop{bottom:calc(1.5rem + env(safe-area-inset-bottom,0px))}
 #suggestModal{padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}</style>
