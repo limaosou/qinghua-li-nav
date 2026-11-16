@@ -216,6 +216,11 @@ function buildBrandHTML(s) {
   return img + `<span class="brand-name text-[28px] sm:text-[32px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
 }
 
+/** 全站统一字体栈（纯系统字体，无网络请求、无分片 swap）。
+ *  必须与六个 HTML 模板 tailwind.config 的 fontFamily.sans 完全一致，
+ *  否则首帧内联 CSS 与 Tailwind 注入后的字体栈不同，仍会出现一次字形跳变。 */
+const FONT_STACK = '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+
 /** 页面 <head> 里「浏览器标签页 + 手机主屏幕」外观的统一出口。
  *  五个前台模板共用 <!--SSR_FAVICON--> 占位符，改这里就能全站生效。
  *
@@ -227,6 +232,8 @@ function buildBrandHTML(s) {
  *  ③ apple-mobile-web-app-*：主屏幕全屏启动、状态栏样式、图标下方的名字（跟随后台站名）。
  *  ④ theme-color 双值兜底；实际颜色由 /ios-chrome.js 跟随用户手动切换的主题实时更新。
  *  ⑤ 刘海/圆角屏安全区 CSS：配合 viewport-fit=cover，横屏时内容不被灵动岛与圆角遮住。
+ *  ⑥ 首帧字体骨架：内联 CSS 让 font-family / 字号 / 行高在第一帧即为最终值，
+ *     避免外部样式表到达前后的字形跳变（字体栈常量见 FONT_STACK）。
  *
  *  后台「品牌图片」填外链时只影响标签页 favicon；主屏幕图标与顶栏仍用内置方形图，
  *  因为横版 LOGO 比例不定，拿来当方形图标会被拉伸裁切。 */
@@ -246,7 +253,11 @@ function buildFaviconHTML(s) {
 <meta name="apple-mobile-web-app-title" content="${esc(appName)}">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
-<style>body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+<style>/* 首帧字体骨架：不依赖任何外部样式表，让字体度量在第一帧就是最终值 */
+html,body{font-family:${FONT_STACK};font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.brand-name{font-size:28px;line-height:1;font-weight:700}
+@media(min-width:640px){.brand-name{font-size:32px}}
+body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 #backTop{bottom:calc(1.5rem + env(safe-area-inset-bottom,0px))}
 #suggestModal{padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}</style>
 <script src="/ios-chrome.js" defer></script>`;
