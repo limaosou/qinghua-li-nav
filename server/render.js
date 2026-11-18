@@ -197,8 +197,9 @@ function buildJSONLD(data, base, s) {
 /** 生成首页 HTML（SSR） */
 /** 品牌区（横版 LOGO + 站名），首页与分类页共用。
  *  顶栏改用完整 QHL 字标，高度撑满 36px（旧 32×32 方块里图案只有 12px 高）。
- *  浅色底用蓝线版，深色底用白线反白版，靠 Tailwind 的 dark: 类切换；
- *  后台若把「品牌图片」填成外链，则仍以外链为准。 */
+ *  浅色底用钴蓝线版；深色底用「月白釉」反白版（淡青蓝，不是纯白——纯白在 #101820 上
+ *  太亮、和站名同亮度，压住主次，细线还容易糊成噪点），靠 Tailwind 的 dark: 类切换；
+ *  后台若把「品牌图片」填成外链，则仍以外链为准。深色版由 scripts/make-brand-logo-dark.py 生成。 */
 function buildBrandHTML(s) {
   const raw = String(s.brand_image || '').trim();
   const cls = 'h-8 sm:h-9 w-auto max-w-[110px] shrink-0 object-contain';

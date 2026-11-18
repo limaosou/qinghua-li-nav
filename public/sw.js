@@ -16,7 +16,7 @@
 // v9：去掉 Google Fonts、字体栈改纯系统字体，并在 SSR head 内联首帧字体骨架；
 // 页面结构变化，必须升版本让老访客丢掉缓存里带网络字体的旧 HTML。
 // v8：新增 iPhone 主屏幕图标 /apple-touch-icon.png 与主题同步脚本 /ios-chrome.js。
-const CACHE = 'navhub-v12';
+const CACHE = 'navhub-v13';
 const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/apple-touch-icon.png', '/ios-chrome.js', '/porcelain.css', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
