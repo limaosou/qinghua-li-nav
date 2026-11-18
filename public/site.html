@@ -60,22 +60,24 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   .site-intro ul { list-style: disc; }
   .site-intro ol { list-style: decimal; }
   .site-intro li { margin: .25rem 0; line-height: 1.75; }
-  .site-intro a { color: #4f46e5; text-decoration: underline; }
+  .site-intro a { color: var(--ink); text-decoration: underline; }
   .site-intro img { max-width: 100%; border-radius: .5rem; }
   .site-intro table { width: 100%; border-collapse: collapse; margin: .75rem 0; font-size: .85rem; }
   .site-intro th, .site-intro td { border: 1px solid #e2e8f0; padding: .4rem .6rem; text-align: left; }
   .site-intro th { background: #f8fafc; font-weight: 600; }
   .dark .site-intro th { background: #1f2937; }
   .dark .site-intro th, .dark .site-intro td { border-color: #374151; }
-  .site-intro blockquote { border-left: 3px solid #a5b4fc; padding-left: .75rem; color: #64748b; margin: .5rem 0; }
+  .site-intro blockquote { border-left: 3px solid var(--line-strong); padding-left: .75rem; color: var(--muted); margin: .5rem 0; }
 </style>
+<!-- 青花瓷皮肤：放在 Tailwind CDN 之后，同权重时由它盖掉旧配色 -->
+<link rel="stylesheet" href="/porcelain.css">
 </head>
-<body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen antialiased">
+<body class="font-sans min-h-screen antialiased">
 <div class="bg-deco"></div>
 
-<header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-200/60 dark:border-gray-800/60">
+<header class="site-header sticky top-0 z-40">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-    <a href="/" class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="返回首页">
+    <a href="/" class="brand-link flex items-center gap-2 transition-colors" aria-label="返回首页">
       <!--SSR_BRAND-->
     </a>
     <div class="flex items-center gap-2">
@@ -106,7 +108,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
 
     <div class="min-w-0">
   <!-- 站点详情卡片 -->
-  <section class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8">
+  <section class="panel border p-6 mb-8">
     <div class="flex flex-col sm:flex-row sm:items-center gap-4">
       <!--SSR_SITE_ICON-->
       <div class="min-w-0 flex-1">
@@ -116,16 +118,16 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
       </div>
     </div>
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-6">
-      <a href="<!--SSR_SITE_URL-->" target="_blank" rel="noopener" class="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-base font-semibold hover:opacity-90 transition shadow-lg shadow-indigo-500/20 cursor-pointer">
+      <a href="<!--SSR_SITE_URL-->" target="_blank" rel="noopener" class="btn-primary flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold transition cursor-pointer">
         <i data-lucide="external-link" class="w-5 h-5"></i> 立即访问官网
       </a>
       <div class="flex gap-3">
-        <div class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          <div class="text-lg font-bold text-indigo-500"><!--SSR_CLICKS--></div>
+        <div class="stat-box flex-1 sm:flex-none text-center px-4 py-2.5 border">
+          <div class="stat-num text-lg font-bold"><!--SSR_CLICKS--></div>
           <div class="text-[11px] text-slate-400">累计点击</div>
         </div>
-        <div class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-          <div class="text-lg font-bold text-emerald-500"><!--SSR_TOTAL15--></div>
+        <div class="stat-box flex-1 sm:flex-none text-center px-4 py-2.5 border">
+          <div class="stat-num text-lg font-bold"><!--SSR_TOTAL15--></div>
           <div class="text-[11px] text-slate-400">近15天访问</div>
         </div>
       </div>
@@ -136,7 +138,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   <!--SSR_DETAIL_CONTENT-->
 
   <!-- 数据统计（仿 fofba：单站每日访问柱状图，PC端 / 移动端 双色） -->
-  <section class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8">
+  <section class="panel border p-6 mb-8">
     <h2 class="text-lg font-bold tracking-tight flex items-center gap-2 mb-1">
       <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-500"></i>数据统计
     </h2>
@@ -165,7 +167,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   </div>
 </main>
 
-<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+<footer class="site-footer border-t py-6 text-center text-xs">
   <!--SSR_FOOTER-->
   <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
 </footer>

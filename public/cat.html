@@ -49,14 +49,16 @@ tailwind.config = {
     .card-hover, .card-hover:hover { transition: none; transform: none; }
   }
 </style>
+<!-- 青花瓷皮肤：放在 Tailwind CDN 之后，同权重时由它盖掉旧配色 -->
+<link rel="stylesheet" href="/porcelain.css">
 </head>
-<body class="bg-slate-50 dark:bg-gray-950 text-slate-800 dark:text-slate-200 font-sans min-h-screen antialiased">
+<body class="font-sans min-h-screen antialiased">
 <div class="bg-deco"></div>
 
 <!-- ===== 顶栏 ===== -->
-<header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-200/60 dark:border-gray-800/60">
+<header class="site-header sticky top-0 z-40">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-    <a href="/" class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="返回首页">
+    <a href="/" class="brand-link flex items-center gap-2 transition-colors" aria-label="返回首页">
       <!--SSR_BRAND-->
     </a>
     <div class="flex items-center gap-2">
@@ -92,9 +94,9 @@ tailwind.config = {
     <div class="min-w-0">
       <!-- 分类标题 -->
       <div class="flex items-center gap-3 mb-6">
-        <span class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-xl"><!--SSR_CAT_ICON--></span>
+        <span class="shrink-0 text-[22px] leading-none"><!--SSR_CAT_ICON--></span>
         <div>
-          <h1 class="text-xl font-bold tracking-tight"><!--SSR_CAT_NAME--></h1>
+          <h1 class="text-2xl font-bold tracking-tight"><!--SSR_CAT_NAME--></h1>
           <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">共收录 <span class="font-semibold text-indigo-500"><!--SSR_CAT_COUNT--></span> 个精选站点</p>
         </div>
       </div>
@@ -110,7 +112,7 @@ tailwind.config = {
   </div>
 </main>
 
-<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+<footer class="site-footer border-t py-6 text-center text-xs">
   <!--SSR_FOOTER-->
   <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
 </footer>

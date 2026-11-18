@@ -1,0 +1,315 @@
+/* ==========================================================================
+   青花瓷皮肤（全站共用的视觉层）
+   --------------------------------------------------------------------------
+   取色自青花瓷：钴蓝 #2C4A7C + 暖瓷白 #F7F4EC + 釉面细描边。
+   只负责颜色 / 表面 / 描边 / 字体气质；布局与响应式仍由各页 Tailwind 类负责。
+
+   为什么单独一层 CSS：深浅两套色用变量承载，就不必在每处再写一遍
+   dark: 变体；而且服务端 SSR 出来的卡片、侧栏天然套用同一套样式，
+   首屏不会先闪一下旧配色。
+
+   引入位置：五个前台模板 <head> 末尾（在 Tailwind CDN 之后），
+   同权重时后加载者胜出，能盖掉工具类里的旧颜色。
+   ========================================================================== */
+
+:root {
+  --ink: #2C4A7C;                    /* 青花钴蓝：浅色主题主色 */
+  --ink-deep: #1E3355;               /* 更沉一档，用于标题 */
+  --ink-soft: #4A6E9E;               /* 悬停 / 描边强调 */
+  --ink-wash: rgba(44, 74, 124, .08);/* 主色淡铺底 */
+  --porcelain: #F7F4EC;              /* 暖瓷白：页面底色 */
+  --card: #FFFDF8;                   /* 瓷片：卡片底色 */
+  --well: rgba(44, 74, 124, .045);   /* 凹槽：输入框 / 统计框 */
+  --line: rgba(44, 74, 124, .16);    /* 釉面细描边 */
+  --line-strong: rgba(44, 74, 124, .3);
+  --text: #1C2430;
+  --muted: #5C6B7E;
+  --serif: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "SimSun", serif;
+}
+
+html.dark {
+  --ink: #8FB4E0;
+  --ink-deep: #D6E4F5;
+  --ink-soft: #7FA6D4;
+  --ink-wash: rgba(143, 180, 224, .12);
+  --porcelain: #101820;
+  --card: #16202B;
+  --well: rgba(143, 180, 224, .07);
+  --line: rgba(143, 180, 224, .18);
+  --line-strong: rgba(143, 180, 224, .34);
+  --text: #E6EDF5;
+  --muted: #8FA0B3;
+}
+
+/* ---------- 底色与文字 ---------- */
+html { background: var(--porcelain); }
+body { background: var(--porcelain); color: var(--text); }
+::selection { background: var(--ink-wash); color: var(--ink-deep); }
+
+/* 原来的紫蓝光晕装饰：青花瓷不需要发光，直接关掉，省掉两个大范围模糊图层 */
+.bg-deco { display: none; }
+
+/* ---------- 顶栏 ---------- */
+header.site-header {
+  background: var(--porcelain);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+header.site-header a,
+header.site-header button { border-radius: 6px; }
+header.site-header a:hover,
+header.site-header button:hover { color: var(--ink); background-color: var(--ink-wash); }
+/* 品牌链接只变色，不给整块底色（它含 LOGO 图，铺底色会显得笨重） */
+header.site-header a.brand-link:hover { background-color: transparent; }
+header.site-header .brand-name { color: var(--ink-deep); }
+
+/* 顶栏「推荐站点」由实心紫底改成釉线描边的克制按钮 */
+#suggestBtn {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+}
+#suggestBtn:hover { background: var(--ink-wash); color: var(--ink); }
+
+/* ---------- 首屏：问候语 / 标题 / 搜索 ---------- */
+#greeting {
+  letter-spacing: .14em;
+  font-size: 11px;
+  color: var(--muted);
+}
+/* 主标题用系统宋体做「器物感」，零网络字体，不影响首帧字体度量 */
+.hero-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.32;
+  letter-spacing: .04em;
+  color: var(--ink-deep);
+}
+@media (min-width: 640px) { .hero-title { font-size: 38px; } }
+
+.search-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(28, 36, 48, .05);
+}
+#searchInput {
+  background: var(--porcelain);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+}
+#searchInput::placeholder { color: var(--muted); opacity: .75; }
+#searchInput:focus {
+  outline: none;
+  border-color: var(--ink-soft);
+  box-shadow: 0 0 0 3px var(--ink-wash);
+}
+#searchBtn {
+  background: var(--ink);
+  color: var(--porcelain);
+  border-radius: 4px;
+  letter-spacing: .08em;
+}
+#searchBtn:hover { background: var(--ink-deep); color: var(--porcelain); opacity: 1; }
+
+/* ---------- 引擎切换 / 分类筛选：小方块标签 ---------- */
+#engineTabs button {
+  border-radius: 4px;
+  color: var(--muted);
+  border-color: var(--line);
+}
+#engineTabs button:hover { color: var(--ink); border-color: var(--ink-soft); }
+#engineTabs button.is-on {
+  background: var(--ink-wash);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.cat-chip,
+.chip {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.cat-chip:hover,
+.chip:hover { border-color: var(--ink-soft); color: var(--ink); }
+.chip.is-on {
+  background: var(--ink-wash);
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* 计数徽章与说明标签：细描边小签，不用实心色块 */
+.count,
+.tag {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  line-height: 1.45;
+  white-space: nowrap;
+}
+.tag { letter-spacing: .06em; }
+
+/* 公告条 */
+.notice {
+  background: var(--ink-wash);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+}
+
+/* ---------- 卡片：薄瓷片，去掉厚阴影 ----------
+   类名重复写两遍是刻意提权重：卡片上的 bg/边框/阴影工具类以后若又长回来，
+   皮肤依旧能生效，不必逐页再改一遍。 */
+a.card-hover.card-hover {
+  background: var(--card);
+  border-color: var(--line);
+  border-radius: 6px;
+  box-shadow: none;
+}
+a.card-hover.card-hover:hover {
+  border-color: var(--ink-soft);
+  box-shadow: 0 2px 10px rgba(28, 36, 48, .07);
+  transform: translateY(-1px);
+}
+a.card-hover.card-hover img { border-radius: 4px; border-color: var(--line); background: transparent; }
+/* 卡片标题：悬停时才变钴蓝（文字色写在皮肤里，服务端与前端共用同一份） */
+a.card-hover .card-title { color: var(--text); }
+a.card-hover:hover .card-title { color: var(--ink); }
+/* 标签：从圆药丸改成细描边的小签 */
+.card-tag {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.card-tag:hover { border-color: var(--ink-soft); color: var(--ink); }
+/* 收藏星标：朱砂一点点，别抢主色 */
+a.card-hover .fav-btn { color: rgba(120, 132, 150, .55); border-radius: 4px; }
+
+/* ---------- 区块标题：宋体 + 去底的 emoji ---------- */
+main h1, main h2 { font-family: var(--serif); letter-spacing: .03em; }
+/* 用户填写的网站介绍保留原排版字体，不强制宋体 */
+.site-intro h1, .site-intro h2, .site-intro h3, .site-intro h4 { font-family: inherit; }
+
+/* ---------- 左侧导航（首页 #catNav 与其它页 .sidenav） ---------- */
+#catNav a,
+.sidenav a {
+  border-radius: 4px;
+  color: var(--muted);
+}
+#catNav a:hover,
+.sidenav a:hover { background: var(--ink-wash); color: var(--ink); }
+#catNav a.is-on,
+.sidenav a.is-on {
+  background: var(--ink-wash);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- 主按钮（搜索以外的 CTA） ---------- */
+body .btn-primary {
+  background: var(--ink);
+  color: var(--porcelain);
+  border-radius: 4px;
+  box-shadow: none;
+  letter-spacing: .04em;
+  background-image: none;
+}
+body .btn-primary:hover {
+  background: var(--ink-deep);
+  background-image: none;
+  color: var(--porcelain);
+  opacity: 1;
+}
+
+/* ---------- 面板（详情页 / 地图页的分组卡） ---------- */
+body .panel {
+  background: var(--card);
+  border-color: var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* 详情页的两个数字框 */
+.stat-box {
+  background: var(--well);
+  border-color: var(--line);
+  border-radius: 6px;
+}
+.stat-box .stat-num { color: var(--ink-deep); }
+
+/* 热搜模块（/hotboard/）自带 --hb2-* 主题变量，
+   只重设这几个变量改配色，不动它的结构与跑马灯动画。 */
+#hb2-bar.hb2-bar {
+  --hb2-bg: transparent;
+  --hb2-text: var(--text);
+  --hb2-sub: var(--muted);
+  --hb2-border: var(--line);
+  --hb2-accent: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+}
+/* 活跃频道的底色原本是各平台品牌色（红），这里收到主色淡铺，避免一条红药丸抢眼 */
+#hb2-bar .hb2-tab.active {
+  background: var(--ink-wash);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+/* 频道条本身可收缩，在宽屏会被跑马灯的内容宽度压到只剩几像素，
+   这里定为不收缩（模块自身在 620px 以下会隐藏频道条）。 */
+#hb2-bar .hb2-tabs { flex: 0 0 auto; }
+/* 状态徽章（缓存/实时）的绿橙也收进灰蓝，只留文字含义 */
+#hb2-bar .hb2-state { border-color: var(--line); color: var(--muted); }
+
+/* ---------- 表单（推荐站点弹窗） ---------- */
+#suggestModal > div:nth-child(2) {
+  background: var(--card);
+  border-color: var(--line);
+  border-radius: 8px;
+}
+#suggestModal input,
+#suggestModal textarea {
+  background: var(--porcelain);
+  border-color: var(--line);
+  border-radius: 4px;
+  color: var(--text);
+}
+#suggestModal input::placeholder,
+#suggestModal textarea::placeholder { color: var(--muted); opacity: .75; }
+#suggestModal input:focus,
+#suggestModal textarea:focus { border-color: var(--ink-soft); box-shadow: 0 0 0 3px var(--ink-wash); }
+
+/* ---------- 页脚 / 回顶 ---------- */
+body .site-footer { border-top-color: var(--line); color: var(--muted); }
+body .site-footer a:hover { color: var(--ink); }
+#backTop {
+  background: var(--card);
+  border-color: var(--line);
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(28, 36, 48, .08);
+}
+#backTop:hover { color: var(--ink); border-color: var(--ink-soft); }
+
+/* ---------- 兜底：把残留的紫蓝文字统一收到钴蓝 ----------
+   [class*=" text-indigo"] 里的前导空格很关键：只命中独立写出的 text-indigo-*，
+   不会把 hover:text-indigo-* 这类悬停色也算进来（否则悬停色会变成常驻色）。 */
+main [class*=" text-indigo"] { color: var(--ink); }
+
+/* 链接悬停统一收到钴蓝：模板里还留着大量 hover:text-indigo-500，
+   这里一次性接管。:any-link 比单个类多一个伪类权重，能盖掉工具类。 */
+main a:any-link:hover:not(.btn-primary),
+footer a:any-link:hover { color: var(--ink); }
+
+/* 勾选框跟随主色 */
+#subFriend { accent-color: var(--ink); }

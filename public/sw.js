@@ -7,6 +7,8 @@
  */
 // 换品牌 LOGO / favicon / SSR 页面结构后必须提升版本号：静态资源是缓存优先，
 // 旧缓存里可能还存着 /favicon.ico 的 404 响应、白底旧图标或旧版页面 HTML
+// v12：全站换青花瓷皮肤（新增 /porcelain.css，模板 head 全部引入，
+// 顶栏/卡片/侧栏/按钮改钴蓝釉面），页面与静态资源都变了，升版本清掉旧壳。
 // v11：统一五个前台模板顶栏品牌区间距（首页/关于的 gap-2.5 改 gap-2），
 // 修掉首页与关于页站名比其它页靠后 2px 的问题，升版本清掉旧页面壳。
 // v10：顶栏站名字号 28/32px 改 20/24px（小于 LOGO），SSR head 内联 CSS 同步；
@@ -14,8 +16,8 @@
 // v9：去掉 Google Fonts、字体栈改纯系统字体，并在 SSR head 内联首帧字体骨架；
 // 页面结构变化，必须升版本让老访客丢掉缓存里带网络字体的旧 HTML。
 // v8：新增 iPhone 主屏幕图标 /apple-touch-icon.png 与主题同步脚本 /ios-chrome.js。
-const CACHE = 'navhub-v11';
-const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/apple-touch-icon.png', '/ios-chrome.js', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
+const CACHE = 'navhub-v12';
+const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/apple-touch-icon.png', '/ios-chrome.js', '/porcelain.css', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

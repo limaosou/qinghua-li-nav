@@ -12,8 +12,9 @@
  * 后者会让内容顶进刘海/灵动岛区域，而现有顶栏是 sticky 且没有 safe-area padding-top。
  */
 (function () {
-  var LIGHT = '#ffffff';
-  var DARK = '#0f172a';
+  // 与青花瓷皮肤同色，避免状态栏和页面底色分家（见 public/porcelain.css）
+  var LIGHT = '#F7F4EC';
+  var DARK = '#101820';
 
   function apply() {
     var dark = document.documentElement.classList.contains('dark');

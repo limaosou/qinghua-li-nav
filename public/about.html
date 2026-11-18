@@ -31,13 +31,15 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   .dark .bg-deco::before, .dark .bg-deco::after { opacity: .1; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 </style>
+<!-- 青花瓷皮肤：放在 Tailwind CDN 之后，同权重时由它盖掉旧配色 -->
+<link rel="stylesheet" href="/porcelain.css">
 </head>
-<body class="bg-[#F5F5F7] dark:bg-gray-950 text-slate-900 dark:text-slate-200 min-h-screen flex flex-col antialiased">
+<body class="min-h-screen flex flex-col antialiased">
 <div class="bg-deco" aria-hidden="true"></div>
 
-<header class="sticky top-0 z-40 backdrop-blur-xl bg-white/75 dark:bg-gray-900/75 border-b border-gray-200/80 dark:border-gray-800">
+<header class="site-header sticky top-0 z-40">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-    <a href="/" class="flex items-center gap-2 font-bold text-lg tracking-tight cursor-pointer hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">
+    <a href="/" class="brand-link flex items-center gap-2 cursor-pointer transition-colors">
       <!--SSR_BRAND-->
     </a>
     <div class="flex items-center gap-2">
@@ -87,7 +89,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
     </div>
 
     <div class="pt-2">
-      <a href="/" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-white text-sm font-medium hover:opacity-90 transition cursor-pointer">
+      <a href="/" class="btn-primary inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition cursor-pointer">
         <i data-lucide="compass" class="w-4 h-4"></i>去导航首页逛逛
       </a>
     </div>
@@ -96,7 +98,7 @@ tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['
   </div>
 </main>
 
-<footer class="border-t border-gray-200/80 dark:border-gray-800 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+<footer class="site-footer border-t py-6 text-center text-xs">
   <!--SSR_FOOTER-->
   <span class="mx-1">·</span><a href="/about" class="hover:text-indigo-500 transition-colors">关于青花狸</a>
 </footer>

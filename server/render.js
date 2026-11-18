@@ -18,7 +18,7 @@ const SITE_LIMIT = 12;
 const TAG_LIMIT = 3;
 /** 单个标签展示的最大字符数，超出截断加省略号 */
 const TAG_MAXLEN = 10;
-const TAG_CHIP_CLASS = 'px-2 py-0.5 rounded-full text-[11px] bg-slate-50 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-100 dark:border-gray-700';
+const TAG_CHIP_CLASS = 'card-tag px-2 py-0.5 text-[11px]';
 
 const AVATAR_COLORS = ['bg-indigo-500','bg-sky-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-violet-500','bg-cyan-600','bg-orange-500'];
 const colorOf = s => AVATAR_COLORS[([...String(s)].reduce((a, c) => a + c.codePointAt(0), 0)) % AVATAR_COLORS.length];
@@ -53,15 +53,15 @@ function cardHTML(s, i, extraClass = '', detailEnabled = false) {
   const dataId = detailEnabled ? '' : `data-id="${esc(s.id ?? '')}"`;
   return `
   <a href="${href}" ${attrs} ${dataId} data-idx="${i}"
-     class="card-hover group relative block p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-white dark:bg-gray-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500/50 hover:shadow-[0_10px_32px_rgba(79,70,229,0.10)] dark:hover:shadow-[0_10px_32px_rgba(0,0,0,0.4)]${extraClass}">
-    ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-indigo-400" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
+     class="card-hover group relative block p-3.5 border cursor-pointer${extraClass}">
+    ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-[color:var(--ink-soft)]" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
         ${s.icon ? `<img src="${esc(s.icon)}" alt="${esc(s.title)}" loading="lazy" decoding="async" class="w-10 h-10 rounded-xl object-contain bg-slate-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-1" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
         <span class="w-10 h-10 rounded-xl items-center justify-center text-sm font-bold text-white ${colorOf(s.title)}" style="display:${s.icon ? 'none' : 'flex'}">${esc((s.title || '?')[0]).toUpperCase()}</span>
       </div>
       <div class="min-w-0 pr-4">
-        <div class="font-medium text-[15px] truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200">${esc(s.title)}</div>
+        <div class="card-title font-medium text-[15px] truncate transition-colors duration-200">${esc(s.title)}</div>
         <div class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${esc(s.description || s.url)}</div>
       </div>
     </div>
@@ -71,23 +71,23 @@ function cardHTML(s, i, extraClass = '', detailEnabled = false) {
 
 function renderFragments(data, detailEnabled = false) {
   const catnav = data.map(c => `
-    <a href="#cat-${c.id}" class="cat-link flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 transition-colors duration-200 cursor-pointer" data-cat="${c.id}">
-      <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${c.icon || '📁'}</span>
+    <a href="#cat-${c.id}" class="cat-link flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-200 cursor-pointer" data-cat="${c.id}">
+      <span class="w-5 shrink-0 text-center text-[15px] leading-none">${c.icon || '📁'}</span>
       <span class="truncate">${esc(c.name)}</span>
       <span class="ml-auto text-[11px] text-slate-400 dark:text-slate-500">${c.sites.length}</span>
     </a>`).join('');
 
   const catnavMobile = data.map(c => `
-    <a href="#cat-${c.id}" class="cat-chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-slate-600 dark:text-slate-300 cursor-pointer">${c.icon || ''} ${esc(c.name)}</a>`).join('');
+    <a href="#cat-${c.id}" class="cat-chip shrink-0 px-3.5 py-1.5 text-xs font-medium cursor-pointer">${c.icon || ''} ${esc(c.name)}</a>`).join('');
 
   const content = data.map(c => `
     <section id="cat-${c.id}" class="scroll-mt-24" aria-label="${esc(c.name)}">
       <div class="flex items-center gap-2.5 mb-4">
-        <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-50 to-sky-50 dark:from-indigo-500/10 dark:to-sky-500/10 border border-indigo-100/60 dark:border-indigo-500/20 flex items-center justify-center text-base">${c.icon || '📁'}</span>
+        <span class="shrink-0 text-[15px] leading-none">${c.icon || '📁'}</span>
         <h2 class="text-lg font-bold tracking-tight">${esc(c.name)}</h2>
-        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400">${c.sites.length}</span>
+        <span class="count px-2 py-0.5 text-[11px]">${c.sites.length}</span>
         ${c.sites.length > SITE_LIMIT ? `
-        <a href="/cat/${c.id}" class="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors" aria-label="查看「${esc(c.name)}」全部 ${c.sites.length} 个站点">
+        <a href="/cat/${c.id}" class="ml-auto inline-flex items-center gap-0.5 text-xs font-medium text-slate-400 dark:text-slate-500 transition-colors" aria-label="查看「${esc(c.name)}」全部 ${c.sites.length} 个站点">
           更多<i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
         </a>` : ''}
       </div>
@@ -107,11 +107,11 @@ function featuredHTML(data, detailEnabled = false) {
   const cards = pinned.slice(0, 12).map((s, i) => cardHTML(s, i, '', detailEnabled)).join('');
   return `<section class="mb-10" aria-label="青花狸精选">
     <div class="flex items-center gap-2.5 mb-4">
-      <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-100/60 dark:border-amber-500/20 flex items-center justify-center text-base">⭐</span>
+      <span class="text-[15px] leading-none">⭐</span>
       <h2 class="text-lg font-bold tracking-tight">青花狸精选</h2>
-      <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300">站长私藏</span>
+      <span class="tag px-2 py-0.5 text-[11px]">站长私藏</span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>
   </section>`;
 }
 
@@ -125,11 +125,11 @@ function popularHTML(detailEnabled = false) {
   const cards = rows.map((s, i) => cardHTML(s, i, '', detailEnabled)).join('');
   return `<section class="mb-10" aria-label="热门站点">
     <div class="flex items-center gap-2.5 mb-4">
-      <span class="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-500/10 dark:to-pink-500/10 border border-rose-100/60 dark:border-rose-500/20 flex items-center justify-center text-base">🔥</span>
+      <span class="text-[15px] leading-none">🔥</span>
       <h2 class="text-lg font-bold tracking-tight">大家都在用</h2>
-      <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300">按真实点击</span>
+      <span class="tag px-2 py-0.5 text-[11px]">按真实点击</span>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${cards}</div>
   </section>`;
 }
 
@@ -141,15 +141,13 @@ function popularHTML(detailEnabled = false) {
 function buildSideNav(data, activeId = null) {
   const active = activeId == null ? '' : String(activeId);
   const item = (href, icon, name, count, on) => `
-    <a href="${href}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors duration-200 ${on
-      ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium'
-      : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-gray-800/60 hover:text-indigo-500 dark:hover:text-indigo-400'}">
-      <span class="w-7 h-7 rounded-lg ${on ? 'bg-indigo-100 dark:bg-indigo-500/20' : 'bg-slate-100 dark:bg-gray-800'} flex items-center justify-center text-sm shrink-0">${esc(icon || '📁')}</span>
+    <a href="${href}" class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-200 ${on ? 'is-on' : ''}">
+      <span class="w-5 shrink-0 text-center text-[15px] leading-none">${esc(icon || '📁')}</span>
       <span class="truncate">${esc(name)}</span>
       ${count == null ? '' : `<span class="ml-auto text-[11px] text-slate-400 dark:text-slate-500">${count}</span>`}
     </a>`;
   const total = data.reduce((a, c) => a + (c.count != null ? c.count : (c.sites ? c.sites.length : 0)), 0);
-  return `<nav class="sticky top-20 space-y-1" aria-label="分类导航">
+  return `<nav class="sidenav sticky top-20 space-y-1" aria-label="分类导航">
     <p class="px-3 pb-1 text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">导航</p>
     ${item('/', '🏠', '首页', total, active === 'home')}
     <p class="px-3 pt-3 pb-1 text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">全部分类</p>
@@ -253,8 +251,8 @@ function buildFaviconHTML(s) {
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="${esc(appName)}">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F7F4EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101820" media="(prefers-color-scheme: dark)">
 <style>/* 首帧字体骨架：不依赖任何外部样式表，让字体度量在第一帧就是最终值 */
 html,body{font-family:${FONT_STACK};font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 .brand-name{font-size:20px;line-height:1;font-weight:700}
@@ -323,7 +321,7 @@ function renderNavPage(req) {
   const friendLinkHTML = buildFriendLinkHTML(base, s);
 
   const announceHTML = String(s.announcement || '').trim()
-    ? `<div class="max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-sm text-indigo-700 dark:text-indigo-300">
+    ? `<div class="notice max-w-2xl mx-auto mb-6 flex items-center justify-center gap-2 px-4 py-2.5 text-sm">
          <i data-lucide="megaphone" class="w-4 h-4 shrink-0"></i><span>${esc(s.announcement)}</span>
        </div>`
     : '';
@@ -395,7 +393,7 @@ function renderCategoryPage(req, catId) {
     ? `<div class="mt-10 pt-6 border-t border-gray-200/70 dark:border-gray-800">
         <p class="text-xs font-medium text-slate-400 dark:text-slate-500 mb-3">浏览其他分类</p>
         <div class="flex flex-wrap gap-2">
-          ${siblings.map(c => `<a href="/cat/${c.id}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-500 dark:hover:border-indigo-500/40 dark:hover:text-indigo-400 transition-colors"><span>${c.icon || '📁'}</span>${esc(c.name)}<span class="text-slate-400 dark:text-slate-500">${c.sites.length}</span></a>`).join('')}
+          ${siblings.map(c => `<a href="/cat/${c.id}" class="chip inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors"><span>${c.icon || '📁'}</span>${esc(c.name)}<span class="text-slate-400 dark:text-slate-500">${c.sites.length}</span></a>`).join('')}
         </div>
       </div>`
     : '';
@@ -497,7 +495,7 @@ function renderSiteDetail(req, siteId) {
   const relatedHTML = related.length ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${related.map((r, i) => cardHTML(r, i, '', true)).join('\n')}</div>` : `<p class="text-sm text-slate-400 dark:text-slate-500">该分类下暂无其他站点</p>`;
   const desc = `${s.site_name}收录的网站「${site.title}」：${site.description || ''}。近 15 天访问 ${total15} 次（PC端 ${totalPc} / 移动端 ${totalMb}），点击直达官网。`;
   const detailContentHTML = String(site.detail_content || '').trim()
-    ? `<section class="site-intro bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-6 mb-8 leading-relaxed text-sm text-slate-600 dark:text-slate-300">${String(site.detail_content)}</section>`
+    ? `<section class="site-intro panel border p-6 mb-8 leading-relaxed text-sm">${String(site.detail_content)}</section>`
     : '';
   const jsonld = JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebPage', name: site.title, url: `${base}/site/${site.id}`, description: site.description || '' }).replace(/</g, '\\u003c');
   return siteTemplateCache
@@ -550,10 +548,10 @@ function renderSitemapPage(req) {
   const siteCount = groups.reduce((a, g) => a + g.sites.length, 0);
 
   const body = groups.map(g => `
-    <section id="cat-${g.id}" class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5">
+    <section id="cat-${g.id}" class="panel border p-5">
       <h2 class="text-base font-bold tracking-tight flex items-center gap-2 mb-3">
-        <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">${esc(g.icon || '📁')}</span>
-        <a href="/cat/${g.id}" class="hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors">${esc(g.name)}</a>
+        <span class="w-5 shrink-0 text-center text-[15px] leading-none">${esc(g.icon || '📁')}</span>
+        <a href="/cat/${g.id}" class="transition-colors">${esc(g.name)}</a>
         <span class="text-xs font-normal text-slate-400 dark:text-slate-500">${g.sites.length} 个</span>
       </h2>
       <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-2.5">
