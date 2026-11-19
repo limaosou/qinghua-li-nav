@@ -26,9 +26,11 @@ from PIL import Image, ImageFilter
 PUB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'public')
 SRC = os.path.join(PUB, 'brand-logo-light.png')
 
-# 默认“月白釉”：上端 #D2E3F8 → 下端 #A8C4E8
-DEF_TOP = 'D2E3F8'
-DEF_BOTTOM = 'A8C4E8'
+# 默认“月白釉”（提亮版）：上端 #E8F1FB → 下端 #C6DBF3
+# 2026-11-19：原 D2E3F8→A8C4E8 在深底上偏灰暗、细部发闷；整体提亮并拉开
+# 与深底的对比，同时保留上亮下暗的淡青蓝渐变（不铺纯白，避免过曝失釉感）。
+DEF_TOP = 'E8F1FB'
+DEF_BOTTOM = 'C6DBF3'
 
 
 def hex2rgb(h):
