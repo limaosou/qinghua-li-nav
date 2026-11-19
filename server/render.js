@@ -195,26 +195,16 @@ function buildJSONLD(data, base, s) {
 }
 
 /** 生成首页 HTML（SSR） */
-/** 品牌区（横版 LOGO + 站名），首页与分类页共用。
- *  顶栏改用完整 QHL 字标，高度撑满 36px（旧 32×32 方块里图案只有 12px 高）。
- *  浅色底用钴蓝线版；深色底用「月白釉」反白版（淡青蓝，不是纯白——纯白在 #101820 上
- *  太亮、和站名同亮度，压住主次，细线还容易糊成噪点），靠 Tailwind 的 dark: 类切换；
- *  后台若把「品牌图片」填成外链，则仍以外链为准。深色版由 scripts/make-brand-logo-dark.py 生成。 */
+/** 品牌区（纯文字字标），首页与分类页等五页共用。
+ *  2026-11-20 用户要求去掉浅/深两版 LOGO 图，顶栏只留「青花狸导航」五个字。
+ *  文字取后台 site_name + 固定后缀「导航」（已含则不重复），不改后台站名本身——
+ *  否则全站 title/SEO 里的 `${s.site_name}导航` 会变成「青花狸导航导航」。
+ *  去掉图后文字是唯一品牌标识，字号比原来当副标时放大一档。
+ *  改这里必须同步 buildFaviconHTML 内联首帧 CSS 的两条 .brand-name 规则，否则首帧会跳字形。 */
 function buildBrandHTML(s) {
-  const raw = String(s.brand_image || '').trim();
-  const cls = 'h-8 sm:h-9 w-auto max-w-[110px] shrink-0 object-contain';
-  const inline =
-      `<img src="/brand-logo-light.png" alt="${esc(s.site_name)}" decoding="async" class="${cls} dark:hidden">`
-    + `<img src="/brand-logo-dark.png" alt="${esc(s.site_name)}" decoding="async" class="${cls} hidden dark:block">`;
-  // 旧默认值（空或 /brand-icon.png）一律走内置横版双图
-  const img = (!raw || raw === '/brand-icon.png')
-    ? inline
-    : `<img src="${esc(raw)}" alt="${esc(s.site_name)}" decoding="async" class="h-9 w-auto max-w-[132px] shrink-0 object-contain">`;
-  // 站名刻意小于横版 LOGO：手机 LOGO 高 32px -> 20px 字；桌面 36px -> 24px 字（约 2/3 高），
-  // 让图案当主标、文字做副标。显式字号/行高/字重覆盖各模板父级不一致的
-  // text-lg / text-sm / font-semibold，五页保持统一。
-  // 改这里必须同步 buildFaviconHTML 内联首帧 CSS 的两条 .brand-name 规则，否则首帧会跳字形。
-  return img + `<span class="brand-name text-[20px] sm:text-[24px] leading-none font-bold tracking-normal">${esc(s.site_name)}</span>`;
+  const base = String(s.site_name || '').trim() || '青花狸';
+  const name = /导航$/.test(base) ? base : base + '导航';
+  return `<span class="brand-name text-[24px] sm:text-[28px] leading-none font-bold tracking-normal">${esc(name)}</span>`;
 }
 
 /** 全站统一字体栈（纯系统字体，无网络请求、无分片 swap）。
@@ -236,8 +226,8 @@ const FONT_STACK = '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","H
  *  ⑥ 首帧字体骨架：内联 CSS 让 font-family / 字号 / 行高在第一帧即为最终值，
  *     避免外部样式表到达前后的字形跳变（字体栈常量见 FONT_STACK）。
  *
- *  后台「品牌图片」填外链时只影响标签页 favicon；主屏幕图标与顶栏仍用内置方形图，
- *  因为横版 LOGO 比例不定，拿来当方形图标会被拉伸裁切。 */
+ *  后台「品牌图片」填外链时只影响标签页 favicon；顶栏已改为纯文字字标，不再显示品牌图片。
+ *  主屏幕图标仍是内置的方形图（横版 LOGO 比例不定，拿来当方形图标会被拉伸裁切）。 */
 function buildFaviconHTML(s) {
   const img = String(s.brand_image || '').trim();
   const attrs = 'sizes="16x16 32x32 48x48 64x64 128x128 256x256" type="image/x-icon"';
@@ -256,8 +246,8 @@ function buildFaviconHTML(s) {
 <meta name="theme-color" content="#101820" media="(prefers-color-scheme: dark)">
 <style>/* 首帧字体骨架：不依赖任何外部样式表，让字体度量在第一帧就是最终值 */
 html,body{font-family:${FONT_STACK};font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-.brand-name{font-size:20px;line-height:1;font-weight:700}
-@media(min-width:640px){.brand-name{font-size:24px}}
+.brand-name{font-size:24px;line-height:1;font-weight:700}
+@media(min-width:640px){.brand-name{font-size:28px}}
 body{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 #backTop{bottom:calc(1.5rem + env(safe-area-inset-bottom,0px))}
 #suggestModal{padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}</style>
