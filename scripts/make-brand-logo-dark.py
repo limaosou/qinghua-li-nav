@@ -12,11 +12,14 @@
 做法只取原图的 alpha 通道当遮罩，颜色整层重新铺，所以线稿纹样（缠枝花、
 拱桥、鱼尾）的锯齿边缘原样保留，不会糊。
 
-用法：
-  python scripts/make-brand-logo-dark.py                # 生成正式版
-  python scripts/make-brand-logo-dark.py --top D3E1F2 --bottom B9CEE8 --out x.png
+⚠️ 2026-11-19 起深色 LOGO 已换成「青花瓷立体浮雕 QHL」透明图（由 AI 抠图生成），
+   本脚本（线稿反白版）不再用于生成正式深色 LOGO，仅为保留历史做法。
+   默认输出已改到临时文件名，避免误跑覆盖正式图 public/brand-logo-dark.png。
+   如需再生成线稿风格版本，请显式 --out 指定目标。
 
-换 LOGO 后重跑本脚本即可（源图固定读 public/brand-logo-light.png）。
+用法：
+  python scripts/make-brand-logo-dark.py                # 生成到 /tmp（不会覆盖正式图）
+  python scripts/make-brand-logo-dark.py --out public/brand-logo-dark.png  # 显式覆盖才生效
 """
 
 import argparse
@@ -69,7 +72,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--top', default=DEF_TOP)
     ap.add_argument('--bottom', default=DEF_BOTTOM)
-    ap.add_argument('--out', default=os.path.join(PUB, 'brand-logo-dark.png'))
+    ap.add_argument('--out', default='/tmp/brand-logo-dark-lineart.png')
     ap.add_argument('--grow', type=int, default=5, help='alpha 膨胀半径（奇数），0/1 = 不膨胀')
     a = ap.parse_args()
     build(a.top, a.bottom, a.out, a.grow)
