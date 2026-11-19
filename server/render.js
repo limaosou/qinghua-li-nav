@@ -252,7 +252,7 @@ function buildFaviconHTML(s) {
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="${esc(appName)}">
-<meta name="theme-color" content="#F7F4EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101820" media="(prefers-color-scheme: dark)">
 <style>/* 首帧字体骨架：不依赖任何外部样式表，让字体度量在第一帧就是最终值 */
 html,body{font-family:${FONT_STACK};font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}

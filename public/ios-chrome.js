@@ -13,7 +13,7 @@
  */
 (function () {
   // 与青花瓷皮肤同色，避免状态栏和页面底色分家（见 public/porcelain.css）
-  var LIGHT = '#F7F4EC';
+  var LIGHT = '#FFFFFF';
   var DARK = '#101820';
 
   function apply() {
