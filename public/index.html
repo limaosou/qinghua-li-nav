@@ -614,7 +614,7 @@ document.addEventListener('click', e => {
 
 /* ================= PWA 注册 ================= */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {}); });
 }
 </script>
 </body>

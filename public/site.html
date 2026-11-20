@@ -233,7 +233,7 @@ document.addEventListener('click', e => {
   if (id) fetch('/api/public/click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: Number(id) }), keepalive: true }).catch(() => {});
 });
 
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); }); }
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {}); }); }
 attachFavs();
 </script>
 </body>

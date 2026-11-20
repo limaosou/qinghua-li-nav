@@ -1,12 +1,14 @@
 /**
  * NavHub Service Worker：轻量离线壳
- * 策略：
- *  - 页面（/、/cat/*、/about）：网络优先，失败回退缓存（离线可开）
- *  - /api/*：网络优先，失败回退缓存（数据接口尽量实时）
- *  - 静态资源（js/css/png/webmanifest）：缓存优先
+ * 策略（v14 起全部网络优先）：
+ *  - 所有同源 GET：网络优先，成功即更新缓存，失败回退缓存（离线仍可开）
+ *  - 缓存不再优先返回，避免改了 CSS/图标后老访客被旧壳锁住
  */
-// 换品牌 LOGO / favicon / SSR 页面结构后必须提升版本号：静态资源是缓存优先，
-// 旧缓存里可能还存着 /favicon.ico 的 404 响应、白底旧图标或旧版页面 HTML
+// 版本号仍需提升：新 SW install 时会 delete 掉旧版本缓存、重装 SHELL。
+// v14：背景由暖瓷白改纯白 + 顶栏改纯文字 + favicon 换极简猫头，但此前多次改动
+//      漏升版本，静态资源走缓存优先导致老访客一直看到米黄背景/旧图标。
+//      本版把静态资源也改为网络优先，今后改样式/图标无需再升版本即可生效。
+// v13：此前版本（静态资源缓存优先，会锁旧 CSS）。
 // v12：全站换青花瓷皮肤（新增 /porcelain.css，模板 head 全部引入，
 // 顶栏/卡片/侧栏/按钮改钴蓝釉面），页面与静态资源都变了，升版本清掉旧壳。
 // v11：统一五个前台模板顶栏品牌区间距（首页/关于的 gap-2.5 改 gap-2），
@@ -16,7 +18,7 @@
 // v9：去掉 Google Fonts、字体栈改纯系统字体，并在 SSR head 内联首帧字体骨架；
 // 页面结构变化，必须升版本让老访客丢掉缓存里带网络字体的旧 HTML。
 // v8：新增 iPhone 主屏幕图标 /apple-touch-icon.png 与主题同步脚本 /ios-chrome.js。
-const CACHE = 'navhub-v13';
+const CACHE = 'navhub-v14';
 const SHELL = ['/', '/index.html', '/cat.html', '/about.html', '/favicon.ico', '/favicon-dark.ico', '/apple-touch-icon.png', '/ios-chrome.js', '/porcelain.css', '/brand-icon.png', '/brand-icon-maskable.png', '/brand-logo.png', '/brand-logo-light.png', '/brand-logo-dark.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -58,10 +60,12 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // 静态资源：缓存优先，回源补齐
+  // 其余静态资源（css/js/png/图标/webmanifest）：也改网络优先。
+  // 缓存优先会让改了样式/图标后老访客一直拿到旧文件（如米黄背景锁死），
+  // 强刷只能绕开 HTTP 缓存、绕不开 SW，所以这里统一网络优先，失败才回退缓存。
   e.respondWith(
-    caches.match(req).then((r) =>
-      r || fetch(req).then((rr) => { const copy = rr.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return rr; }).catch(() => r)
-    )
+    fetch(req)
+      .then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return r; })
+      .catch(() => caches.match(req))
   );
 });
