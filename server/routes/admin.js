@@ -335,7 +335,55 @@ router.post('/sites', (req, res) => {
 // 后台异步任务：并发探测各站点可达性，前端轮询进度。结果存内存，进程重启即失效（属预期）。
 const linkJob = { running: false, stop: false, done: 0, total: 0, results: [], startedAt: null, finishedAt: null };
 
-const LINK_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 NavHub/1.0';
+// 合规体检 UA：明确标识身份与用途，站点管理员可据此放行或按自身规则处置。
+// 旧版伪装 Chrome 却拖一条 NavHub 尾巴，TLS/HTTP2 指纹与真浏览器不符，
+// 反而更容易被 WAF 判为"假浏览器"而挑战——这是过去大量 403/503 的诱因之一。
+const LINK_UA = 'NavHub-LinkCheck/1.0 (+https://www.liqinghua.com)';
+
+/** 从响应头识别 CDN/WAF 提供商。只读取站点公开返回的头，不改变请求、不挑战、不绕过防护。 */
+function detectWaf(h = {}) {
+  const blob = [h.server, h.via, h.poweredBy, h.cfMitigated].join(' ').toLowerCase();
+  if (h.cfRay || h.cfMitigated || /cloudflare/.test(blob)) return 'cloudflare';
+  if (/edgeone|tencent cloud/.test(blob)) return 'edgeone';
+  if (h.awsCfId || /cloudfront|amazon/.test(blob)) return 'cloudfront';
+  if (/akamai/.test(blob)) return 'akamai';
+  if (/waf|sucuri|imperva|incapsula|mod_security|modsecurity/.test(blob)) return 'waf';
+  return '';
+}
+
+/** 礼貌解析 Retry-After（秒或 HTTP 日期），封顶 10s 避免拖垮后台队列。 */
+function parseRetryAfter(v) {
+  if (!v) return 0;
+  const n = Number(v);
+  const sec = Number.isFinite(n) ? n : (Date.parse(v) - Date.now()) / 1000;
+  return Number.isFinite(sec) ? Math.max(0, Math.min(Math.ceil(sec), 10)) * 1000 : 0;
+}
+
+/** 结构化探测日志：单行 JSON，便于 grep / 日志系统聚合；不含 Cookie/Token 等敏感信息。 */
+function logProbe(rec) {
+  console.log('[linkcheck:probe] ' + JSON.stringify(rec));
+}
+
+/** 汇总指标：可疑率、受保护占比、WAF 命中、重试率、耗时分位数。 */
+function summarize(results, durationMs) {
+  const c = { total: results.length, ok: 0, warn: 0, fail: 0, protected: 0, wafBlocked: 0, retried: 0 };
+  const times = [];
+  for (const r of results) {
+    if (c[r.status] !== undefined) c[r.status]++;
+    if (r.protected) c.protected++;
+    if (r.waf) c.wafBlocked++;
+    if ((r.attempts || 1) > 1) c.retried++;
+    times.push(r.elapsedMs || 0);
+  }
+  times.sort((a, b) => a - b);
+  return {
+    ...c,
+    suspicionRate: c.total ? +(c.warn / c.total).toFixed(3) : 0, // 核心指标：可疑率（目标 < 0.05）
+    avgMs: c.total ? Math.round(times.reduce((a, b) => a + b, 0) / c.total) : 0,
+    p95Ms: times.length ? times[Math.min(times.length - 1, Math.floor(times.length * 0.95))] : 0,
+    durationMs,
+  };
+}
 
 // ---------- 白名单：人工确认「这条不是死链」后，体检不再把它算进失效 ----------
 const WL_KEY = 'link_ok_urls';
@@ -360,11 +408,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // 而 e.message 往往只是 "fetch failed"，所以要把 cause.message 也纳入判断
 const CERT_HINT = /cert|ssl|tls|altname|unable_to_verify|self[_ ]?signed|depth_zero|expired/i;
 
-/** 单次探测，返回归一化结果（不重试）。resp 时带上最终落点 URL，供域名漂移检测 */
-async function attempt(url, timeoutMs) {
+/** 单次探测（不重试）。resp 时保留最终落点 URL 与关键响应头，作为精准判定的证据。 */
+async function attempt(url, timeoutMs, method = 'GET') {
   try {
     // 走安全闸门：禁止内网/回环/云元数据，且重定向逐跳校验
     const r = await safeFetch(url, {
+      method, // GET 为主；仅当站点返回 405 时才用 HEAD 做合规替代验证
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
         'User-Agent': LINK_UA,
@@ -372,7 +421,20 @@ async function attempt(url, timeoutMs) {
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
     });
-    return { kind: 'resp', code: r.status, finalUrl: r.finalUrl || '' };
+    const h = r.headers;
+    return {
+      kind: 'resp', code: r.status, finalUrl: r.finalUrl || '',
+      headers: {
+        server: (h.get('server') || '').slice(0, 80),
+        via: (h.get('via') || '').slice(0, 80),
+        poweredBy: (h.get('x-powered-by') || '').slice(0, 80),
+        cfRay: h.get('cf-ray') || '',
+        cfMitigated: h.get('cf-mitigated') || '',
+        awsCfId: h.get('x-amz-cf-id') || '',
+        cache: (h.get('x-cache') || h.get('x-cache-lookup') || '').slice(0, 80),
+        retryAfter: h.get('retry-after') || '',
+      },
+    };
   } catch (e) {
     const code = String(e?.cause?.code || e?.code || '').toUpperCase();
     const msg = String(e?.message || e || '未知错误');
@@ -388,16 +450,51 @@ async function attempt(url, timeoutMs) {
   }
 }
 
-/** 把单次探测结果翻译成三档结论 */
+/**
+ * 把单次探测结果翻译成结论。核心判定原则（避免"可疑站过多"）：
+ *
+ *  A. 只要收到任何 HTTP 响应（含 4xx/5xx），就证明站点网络层存活——DNS、TCP、TLS、HTTP
+ *     全通。此时「拒绝访问」是站点的正常防护（登录墙/WAF/限流），不是失效、也不该算可疑。
+ *  B. 只把"连不上/连不稳"当失效候选：DNS 不存在、连接超时、连接拒绝、重置、证书致命错误。
+ *  C. 区分「可核查的软失败」与「真失效」：404 页面迁移、证书细节、503 瞬时故障 → warn 待人工确认。
+ *
+ * 三档 status 保持前端兼容；category 给出细粒度原因（日志与前端提示用）。
+ * 重试只针对真正可能是抖动的类别，且不针对"站点明确拒绝"反复敲门。
+ */
 function classify(a) {
   if (a.kind === 'resp') {
-    if (a.code < 400) return { status: 'ok', code: a.code, message: '' };
-    if ([401, 403, 405, 406, 429, 503].includes(a.code))
-      return { status: 'warn', code: a.code, message: `HTTP ${a.code}，站点拒绝探测（可能拦爬虫，不一定是死链）` };
-    if (a.code >= 500 || [520, 521, 522, 525, 526, 527, 530].includes(a.code))
-      return { status: 'fail', code: a.code, message: `HTTP ${a.code}（服务端错误，将重试）` };
-    return { status: 'fail', code: a.code, message: `HTTP ${a.code}` };
+    const code = a.code;
+    const waf = detectWaf(a.headers || {});
+    const wafTag = waf ? `（站点由 ${waf} 防护）` : '';
+    if (code < 400) return { status: 'ok', category: 'reachable', code, message: '' };
+
+    // 登录墙 / 反爬 / WAF 拦截：站点明确活着，只是拒绝匿名自动访问 → 判 ok，不计可疑
+    if ([401, 403, 405, 406, 429].includes(code)) {
+      const why = code === 401 ? '需要登录' : code === 403 ? '禁止匿名访问/WAF 拦截'
+        : code === 405 ? '拒绝此请求方法' : code === 406 ? '内容协商不匹配' : '触发限流';
+      return {
+        status: 'ok', category: 'protected', code,
+        message: `站点在线，${why}（HTTP ${code}）${wafTag}；浏览器手动打开通常可访问，非失效`,
+        protected: true, waf,
+        // 405 值得用 HEAD 做一次合规替代验证；其它拒绝类不重试（尊重站点意愿）
+        altMethod: code === 405 ? 'HEAD' : '',
+      };
+    }
+    // 404/410：域名与服务器都在，只是这个路径没了（常见于改版）→ 待人工确认
+    if ([404, 410].includes(code)) {
+      return { status: 'warn', category: 'not_found', code, message: `站点在线，但登记路径返回 HTTP ${code}，可能已改版或迁移，建议核实网址（非域名失效）` };
+    }
+    // 408 请求超时：客户端侧问题，非站点失效
+    if (code === 408) return { status: 'warn', category: 'client_timeout', code, message: 'HTTP 408，请求处理超时（多为客户端网络问题），建议稍后复查' };
+    // 5xx：服务端可能是瞬时故障（503 维护 / 502 上游抖动），不在这里直接判死，交 probeSite 重试确认
+    if (code >= 500) {
+      const hint = code === 503 ? '服务暂时不可用（常见于维护/限流）' : '服务端错误';
+      return { status: 'warn', category: 'server_error', code, message: `HTTP ${code}，${hint}${wafTag}；将重试确认`, waf, retryable: true };
+    }
+    // 其余 4xx（400/402/407/412/418/422 等）：站点有响应即存活，归一化到 warn 提示人工看
+    return { status: 'warn', category: 'http_4xx', code, message: `站点在线，返回 HTTP ${code}（请求被站点规则拒绝），非失效` };
   }
+
   switch (a.kind) {
     case 'cert': {
       // 证书链不全 / 域名不匹配 / 已过期：浏览器大多能自动补全或放行，站点通常仍可访问，不判死
@@ -406,20 +503,23 @@ function classify(a) {
         : /EXPIRED/i.test(c) ? '证书已过期'
         : /SELF[_ ]?SIGNED|DEPTH_ZERO/i.test(c) ? '自签名证书'
         : '证书链不完整（站点未下发中间证书）';
-      return { status: 'warn', code: 0, message: `${why}${c ? `（${c}）` : ''}：浏览器一般仍能打开，建议保留` };
+      return { status: 'warn', category: 'cert', code: 0, message: `${why}${c ? `（${c}）` : ''}：浏览器一般仍能打开，建议保留` };
     }
     case 'header':
-      return { status: 'warn', code: 0, message: '响应头异常（站点限流或协议兼容问题），未必是死链' };
+      return { status: 'warn', category: 'header', code: 0, message: '响应头异常（站点限流或协议兼容问题），未必是死链' };
     case 'timeout':
-      return { status: 'fail', code: 0, message: '连接超时' };
+      return { status: 'fail', category: 'timeout', code: 0, message: '连接超时', retryable: true };
     case 'dns':
-      return { status: 'fail', code: 0, message: a.code === 'EAI_AGAIN' ? '域名解析暂时失败' : '域名解析失败（域名不存在）' };
+      // EAI_AGAIN 是解析服务器临时故障，不是域名不存在——单独重试，不判死
+      return a.code === 'EAI_AGAIN'
+        ? { status: 'warn', category: 'dns_temp', code: 0, message: '域名解析暂时失败（DNS 抖动），将重试', retryable: true }
+        : { status: 'fail', category: 'dns', code: 0, message: '域名解析失败（域名不存在）' };
     case 'refused':
-      return { status: 'fail', code: 0, message: '连接被拒绝' };
+      return { status: 'fail', category: 'refused', code: 0, message: '连接被拒绝', retryable: true };
     case 'reset':
-      return { status: 'fail', code: 0, message: '连接被重置（将重试）' };
+      return { status: 'fail', category: 'reset', code: 0, message: '连接被重置', retryable: true };
     default:
-      return { status: 'fail', code: 0, message: a.message || (a.code || '未知错误') };
+      return { status: 'fail', category: 'net', code: 0, message: a.message || (a.code || '未知错误'), retryable: true };
   }
 }
 
@@ -435,39 +535,79 @@ function sameSite(h1, h2) {
 }
 
 /**
- * 探测单个网址。分三档：
- *   ok   —— 2xx/3xx；白名单内的站点直接判 ok（跳过探测，不再反复出现在可疑名单里）
- *   warn —— 拒绝探测(401/403/429/503)、证书问题、响应头异常、重定向落到其他域名：多半活着，不建议直接删
- *   fail —— 4xx、5xx(重试后)、DNS 失败、超时、连接拒绝
- * 5xx / 超时 / 连接重置会换更长的超时重试一次，避免瞬时抖动被误杀。
+ * 探测单个网址。判定原则：收到 HTTP 响应即证明站点在线（详见 classify 注释）。
+ *   ok   —— 2xx/3xx；401/403/405/406/429 归为"在线但受站点防护"（protected，不计可疑）；
+ *           白名单内站点直接 ok（跳过探测）
+ *   warn —— 404/410 路径迁移、证书细节、5xx 重试后仍异常、响应头异常、域名漂移：
+ *           站点多半活着，需人工确认而非删除
+ *   fail —— DNS 不存在、连接超时/拒绝/重置（重试后仍失败）等真正连不上的情况
+ * 礼貌重试：只针对可能抖动的类别，遵守 Retry-After（封顶 10s）；405 用 HEAD 替代验证；
+ * 明确拒绝（401/403/406/429）与 DNS 不存在不重试——尊重站点规则，不硬闯。
  */
 async function probeSite(site, whitelist = []) {
+  const started = Date.now();
+  const head = { id: site.id, title: site.title, url: site.url };
   if (whitelist.includes(site.url)) {
-    return { status: 'ok', code: 0, message: '已标记正常（白名单，跳过探测）', whitelisted: true };
+    const r = { status: 'ok', category: 'whitelisted', code: 0, message: '已标记正常（白名单，跳过探测）', whitelisted: true, attempts: 0, elapsedMs: 0 };
+    logProbe({ ...head, ...r });
+    return r;
   }
-  const a = await attempt(site.url, 8000);
+
+  let a = await attempt(site.url, 8000);
   let r = classify(a);
-  // 服务端错误、超时、连接重置 → 重试一次（DNS 失败不重试，重试也没用）；4xx 属明确响应，不重试
-  const retryable = (a.kind === 'resp' && r.status === 'fail' && (a.code >= 500 || [520, 521, 522, 525, 526, 527, 530].includes(a.code)))
-    || ['timeout', 'reset', 'net'].includes(a.kind);
-  if (retryable) {
-    await sleep(700);
-    const b = await attempt(site.url, 15000);
-    r = classify(b);
-    if (r.status === 'fail' && a.kind === 'resp') r.message = `HTTP ${a.code}（已重试一次仍失败）`;
-    else if (r.status === 'fail' && a.kind === 'timeout') r.message = '连接超时（已重试一次，15s）';
+  let attempts = 1;
+
+  // 合规替代验证：405「方法不被允许」时改用 HEAD 复核一次。
+  // 这不是绕过限制——只是换用站点更可能接受的标准方法，且不发起第二次 GET 冲击。
+  if (r.altMethod) {
+    await sleep(250);
+    const h = await attempt(site.url, 8000, r.altMethod);
+    attempts++;
+    if (h.kind === 'resp' && h.code < 400) {
+      r = { status: 'ok', category: 'reachable_via_head', code: h.code, protected: true,
+        message: `GET 被站点拒绝，但 HEAD 正常（HTTP ${h.code}），站点在线`, waf: detectWaf(h.headers || {}) };
+      a = h;
+    }
   }
-  // 域名漂移：登记的是 A 域名，跳转链最后落到 B 域名（挂羊头卖狗肉/换域名/被接替）
+
+  // 礼貌重试：仅对"可能是网络抖动"的类别；遵守站点 Retry-After（封顶 10s），
+  // 否则短退避。站点明确拒绝（401/403/406/429）与 DNS 不存在不重试——尊重站点与事实。
+  if (r.retryable) {
+    const wait = Math.min((a.headers && parseRetryAfter(a.headers.retryAfter)) || 1200, 10000);
+    await sleep(wait);
+    const b = await attempt(site.url, 15000);
+    attempts++;
+    const rb = classify(b);
+    if (rb.status === 'ok') {
+      r = { ...rb, message: rb.message ? `${rb.message}（重试后恢复）` : '重试后恢复正常' };
+    } else if (r.status === 'warn' && rb.status === 'fail') {
+      // 首探软失败（如 503）已证明站点在线，重试时网络异常不足以推翻 → 保留 warn 不误杀
+      r = { ...r, message: `${r.message}；重试时网络异常（${b.code || b.kind}）` };
+    } else {
+      r = { ...rb, message: `${rb.message}（已重试一次）` };
+    }
+    a = b;
+  }
+
+  // 域名漂移：登记的是 A 域名，跳转链最后落到 B 域名（可能已换域名或被接替）
   if (r.status === 'ok' && a.finalUrl) {
     try {
       const orig = new URL(site.url).host;
       const fin = new URL(a.finalUrl).host;
       if (!sameSite(orig, fin)) {
-        r = { status: 'warn', code: r.code, message: `已跳转到其他站点（${fin}）：原网址可能已更换域名或被他人接替，建议核实后更新或删除`, drifted: true };
+        r = { status: 'warn', code: r.code, category: 'domain_drift',
+          message: `已跳转到其他站点（${fin}）：原网址可能已更换域名或被他人接替，建议核实后更新或删除`, drifted: true };
       }
     } catch { /* URL 解析失败则忽略 */ }
   }
-  return { ...r, whitelisted: false };
+
+  const out = {
+    ...r, whitelisted: false, category: r.category || r.status,
+    protected: !!r.protected, waf: r.waf || detectWaf(a.headers || {}),
+    attempts, elapsedMs: Date.now() - started,
+  };
+  logProbe({ ...head, ...out });
+  return out;
 }
 
 router.post('/check-links/start', (req, res) => {
@@ -479,8 +619,10 @@ router.post('/check-links/start', (req, res) => {
   if (!sites.length) return res.status(400).json({ code: 1, message: '没有可检测的网址' });
 
   const whitelist = getWhitelist();
-  Object.assign(linkJob, { running: true, stop: false, done: 0, total: sites.length, results: [], startedAt: Date.now(), finishedAt: null, whitelist });
-  const CONCURRENCY = 10;
+  Object.assign(linkJob, { running: true, stop: false, done: 0, total: sites.length, results: [], startedAt: Date.now(), finishedAt: null, whitelist, summary: null });
+  // 并发从 10 降到 4：对一批站点同时打 10 个请求太像扫描器，容易自己触发 429/403。
+  // 配合礼貌重试与 Retry-After，牺牲一点速度换取"拒绝探测"误判大幅下降。
+  const CONCURRENCY = 4;
   (async () => {
     let idx = 0;
     const worker = async () => {
@@ -494,7 +636,9 @@ router.post('/check-links/start', (req, res) => {
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, sites.length) }, worker));
     linkJob.running = false;
     linkJob.finishedAt = Date.now();
-    console.log(`[linkcheck] 完成 ${linkJob.done}/${linkJob.total}，耗时 ${Math.round((linkJob.finishedAt - linkJob.startedAt) / 1000)}s`);
+    const summary = summarize(linkJob.results, linkJob.finishedAt - linkJob.startedAt);
+    linkJob.summary = summary;
+    console.log(`[linkcheck] 完成 ${linkJob.done}/${linkJob.total}，耗时 ${Math.round(summary.durationMs / 1000)}s · summary ${JSON.stringify(summary)}`);
   })();
   res.json({ code: 0, data: { started: true, total: sites.length } });
 });
@@ -507,7 +651,7 @@ router.get('/check-links/status', (req, res) => {
   if (results.length !== linkJob.results.length) linkJob.results = results;
   res.json({
     code: 0,
-    data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results, whitelist: linkJob.whitelist || getWhitelist() },
+    data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results, whitelist: linkJob.whitelist || getWhitelist(), summary: linkJob.summary || null },
   });
 });
 
@@ -537,11 +681,14 @@ router.post('/check-links/whitelist', async (req, res) => {
     if (action === 'add') {
       r.whitelisted = true;
       r.status = 'ok';
+      r.category = 'whitelisted';
+      r.protected = false;
+      r.waf = '';
       r.message = '已标记正常（白名单，跳过探测）';
       delete r.drifted;
     } else {
-      const pr = await probeSite({ url: r.url }, next);
-      Object.assign(r, { status: pr.status, code: pr.code, message: pr.message, whitelisted: false });
+      const pr = await probeSite({ id: r.id, title: r.title, url: r.url }, next);
+      Object.assign(r, pr, { whitelisted: false });
       delete r.drifted;
     }
   }

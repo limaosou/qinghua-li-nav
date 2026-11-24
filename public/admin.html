@@ -913,10 +913,11 @@ $('iconLetterBtn').addEventListener('click', async () => {
 /* ============ 链接体检 ============ */
 let lcTimer = null;
 let lcResults = [];
+let lcSummary = null; // 服务端汇总指标：可疑率、受保护数、WAF 命中、耗时分位数
 
 const LC_BADGE = {
   ok:   '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">正常</span>',
-  warn: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">可疑</span>',
+  warn: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">待核实</span>',
   fail: '<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400">失效</span>',
 };
 const LC_ORDER = { fail: 0, warn: 1, ok: 2 };
@@ -940,6 +941,7 @@ async function pollLinkCheck() {
   try { st = await api('/api/admin/check-links/status', null, 'GET'); }
   catch { return; }
   lcResults = st.results || [];
+  lcSummary = st.summary || null;
   CHECK.clear();
   lcResults.forEach(r => CHECK.set(r.id, r));
   const pct = st.total ? Math.round((st.done / st.total) * 100) : 0;
@@ -954,24 +956,30 @@ async function pollLinkCheck() {
   $('lcStopBtn').classList.add('hidden');
   $('lcStartBtn').classList.remove('hidden');
   $('lcProgressWrap').classList.add('hidden');
-  const bad = lcResults.filter(r => r.status !== 'ok').length;
-  toast(bad ? `体检完成：${bad} 条异常` : '体检完成：全部正常');
+  const fails = lcResults.filter(r => r.status === 'fail').length;
+  const warns = lcResults.filter(r => r.status === 'warn').length;
+  const prot = lcResults.filter(r => r.protected).length;
+  const rate = lcSummary ? ` · 可疑率 ${(lcSummary.suspicionRate * 100).toFixed(1)}%` : '';
+  toast(`体检完成：失效 ${fails} · 待核实 ${warns} · 受保护 ${prot}${rate}`);
 }
 
 function renderLcTable() {
   const cnt = { ok: 0, warn: 0, fail: 0 };
   lcResults.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
   const wlCount = lcResults.filter(r => r.whitelisted).length;
+  const protCount = lcResults.filter(r => r.protected).length;
   const sum = $('lcSummary');
   if (lcResults.length) {
     sum.classList.remove('hidden', 'flex');
     sum.classList.add('flex');
     sum.innerHTML = `
       <span class="px-2 py-0.5 rounded-md font-medium bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400">失效 ${cnt.fail}</span>
-      <span class="px-2 py-0.5 rounded-md font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">可疑 ${cnt.warn}</span>
+      <span class="px-2 py-0.5 rounded-md font-medium bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">待核实 ${cnt.warn}</span>
       <span class="px-2 py-0.5 rounded-md font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">正常 ${cnt.ok}</span>
+      ${protCount ? `<span class="px-2 py-0.5 rounded-md font-medium border border-sky-200 dark:border-sky-500/30 text-sky-600 dark:text-sky-400" title="站点有响应即在线，只是需要登录或启用了 WAF/限流，不计入可疑">受保护 ${protCount}</span>` : ''}
       ${wlCount ? `<span class="px-2 py-0.5 rounded-md font-medium border border-emerald-300 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400">白名单 ${wlCount}</span>` : ''}
-      <span class="text-slate-400 self-center">可疑=拒绝探测（拦爬虫）/证书问题/跳转到其他域名，建议浏览器确认后再处理</span>`;
+      <span class="text-slate-400 self-center">受保护 / 需登录 / 被限流均算在线、不算可疑；待核实多为路径迁移或证书细节</span>
+      ${lcSummary ? `<span class="text-slate-400 self-center ml-auto" title="核心评估指标">可疑率 ${(lcSummary.suspicionRate * 100).toFixed(1)}% · WAF 命中 ${lcSummary.wafBlocked} · P95 ${lcSummary.p95Ms}ms</span>` : ''}`;
     $('lcDelFailBtn').classList.toggle('hidden', cnt.fail === 0);
   } else { sum.classList.add('hidden'); }
 
@@ -981,7 +989,7 @@ function renderLcTable() {
     .filter(r => r.status !== 'ok')
     .sort((a, b) => (LC_ORDER[a.status] - LC_ORDER[b.status]) || a.id - b.id);
   if (!problems.length) {
-    el.innerHTML = `<p class="text-sm text-emerald-600 dark:text-emerald-400 py-2 flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4"></i>全部 ${cnt.ok} 条链接正常</p>`;
+    el.innerHTML = `<p class="text-sm text-emerald-600 dark:text-emerald-400 py-2 flex items-center gap-1.5"><i data-lucide="check-circle-2" class="w-4 h-4"></i>全部 ${cnt.ok} 条链接正常${protCount ? `（其中 ${protCount} 条在线但受站点防护，已计为正常）` : ''}</p>`;
     icons(); return;
   }
   el.innerHTML = `<div class="mt-2 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden max-h-96 overflow-y-auto"><table class="w-full text-sm">` +
@@ -995,7 +1003,7 @@ function renderLcTable() {
           <div class="text-xs text-slate-400 mt-0.5 max-w-[300px] truncate">${esc(r.url)}</div>
         </td>
         <td class="px-3 py-2.5 hidden md:table-cell text-slate-500">${cat ? esc(cat.name) : '—'}</td>
-        <td class="px-3 py-2.5 text-xs text-slate-400 max-w-[200px] truncate" title="${esc(r.message || '')}">${esc(r.message || `HTTP ${r.code}`)}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-400 max-w-[200px] truncate" title="${esc(r.message || '')}">${r.category && r.category !== r.status ? `<span class="mr-1 px-1 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-gray-800 text-slate-400">${esc(r.category)}</span>` : ''}${esc(r.message || `HTTP ${r.code}`)}</td>
         <td class="px-4 py-2.5 text-right whitespace-nowrap">
           ${r.whitelisted
             ? `<button data-lc-unwl="${r.id}" class="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="取消「标记正常」（重新纳入检测）"><i data-lucide="bookmark-minus" class="w-3.5 h-3.5"></i></button>`
@@ -1061,6 +1069,7 @@ async function markLinkOk(id, add) {
     // 服务端已同步状态（标记→ok / 取消→当场重新探测），拉一次保持前后端一致
     const st = await api('/api/admin/check-links/status', null, 'GET');
     lcResults = st.results || [];
+    lcSummary = st.summary || null;
     CHECK.clear();
     lcResults.forEach(x => CHECK.set(x.id, x));
     renderLcTable(); renderSites();
@@ -1096,6 +1105,7 @@ async function resumeLinkCheck() {
     const st = await api('/api/admin/check-links/status', null, 'GET');
     if (!st.results || !st.results.length) return;
     lcResults = st.results;
+    lcSummary = st.summary || null;
     CHECK.clear();
     lcResults.forEach(r => CHECK.set(r.id, r));
     $('lcStatus').textContent = st.running
