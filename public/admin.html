@@ -1034,17 +1034,23 @@ $('lcDelFailBtn').addEventListener('click', async () => {
   const fails = lcResults.filter(r => r.status === 'fail');
   if (!fails.length) return;
   if (!confirm(`将永久删除 ${fails.length} 条失效网址，不可恢复，确定？`)) return;
-  let ok = 0;
+  // 只把真正删成功的从体检结果里移除：以前不管接口成功与否都整批移除，
+  // 某条请求失败时界面装作删掉了，刷新后链接又出现，看起来像「删不掉」。
+  const removed = new Set();
+  const failed = [];
   for (const r of fails) {
     try {
       await api('/api/admin/sites', { action: 'delete', id: r.id });
-      ok++; CHECK.delete(r.id);
-    } catch (e) { toast(`${r.title}: ${e.message}`, false); }
+      removed.add(r.id); CHECK.delete(r.id);
+    } catch (e) { failed.push(`${r.title}: ${e.message}`); }
   }
-  lcResults = lcResults.filter(r => !fails.find(f => f.id === r.id));
-  renderLcTable(); renderSites();
-  toast(`已删除 ${ok} 条失效网址`);
-  await loadAll();
+  if (removed.size) {
+    lcResults = lcResults.filter(r => !removed.has(r.id));
+    renderLcTable(); renderSites();
+  }
+  await loadAll(); // 以数据库为准重建列表，避免内存态与后端不一致
+  if (failed.length) toast(`已删除 ${removed.size} 条，${failed.length} 条失败：${failed[0]}`, false);
+  else toast(`已删除 ${removed.size} 条失效网址`);
 });
 // 白名单：人工确认某条链接其实能打开 → 标记正常，后续体检直接跳过，不再出现在可疑/失效名单
 async function markLinkOk(id, add) {

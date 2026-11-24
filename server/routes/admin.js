@@ -305,8 +305,13 @@ router.post('/sites', (req, res) => {
       return res.json({ code: 0 });
     }
     if (action === 'delete') {
-      db.prepare('DELETE FROM sites WHERE id = ?').run(req.body.id);
-      return res.json({ code: 0 });
+      const id = Number(req.body.id);
+      const info = db.prepare('DELETE FROM sites WHERE id = ?').run(id);
+      // 体检结果是服务端内存态，刷新后台时由 /check-links/status 原样恢复。
+      // 这里不清理的话，数据库里已经删掉的网址会在体检结果表里“复活”，
+      // 再点一次删除还会返回成功（其实没有记录可删），看起来就像删不掉。
+      if (info.changes) linkJob.results = linkJob.results.filter(r => r.id !== id);
+      return res.json({ code: 0, data: { deleted: info.changes } });
     }
     if (action === 'reorder') {
       const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
@@ -495,9 +500,14 @@ router.post('/check-links/start', (req, res) => {
 });
 
 router.get('/check-links/status', (req, res) => {
+  // 体检结果是内存态，可能被别的入口删掉站点（网址管理删除、分类级联删除、直接改库）。
+  // 返回前按现存站点过滤一次并回写，避免刷新后台时已删的网址又出现在体检结果表里。
+  const alive = new Set(db.prepare('SELECT id FROM sites').all().map(s => s.id));
+  const results = linkJob.results.filter(r => alive.has(r.id));
+  if (results.length !== linkJob.results.length) linkJob.results = results;
   res.json({
     code: 0,
-    data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results: linkJob.results, whitelist: linkJob.whitelist || getWhitelist() },
+    data: { running: linkJob.running, done: linkJob.done, total: linkJob.total, startedAt: linkJob.startedAt, finishedAt: linkJob.finishedAt, results, whitelist: linkJob.whitelist || getWhitelist() },
   });
 });
 
