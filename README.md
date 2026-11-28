@@ -149,7 +149,7 @@ notepad .env                   # 填 ADMIN_USERNAME / ADMIN_PASSWORD_HASH / TOKE
 
 ```powershell
 # 在 Windows 上执行（需能 ssh 到服务器）
-scp root@你的服务器:/www/wwwroot/qinghua-li-nav/data/nav.db .\data\nav.db
+scp root@你的服务器:/www/wwwroot/<你的站点目录>/data/nav.db .\data\nav.db
 ```
 
 没有服务器权限也行：后台「数据备份」页导出 JSON，本地跑起来后再手动录入或写脚本导入。
@@ -174,7 +174,7 @@ git push
 然后到服务器上更新：
 
 ```bash
-cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
+cd /www/wwwroot/<你的站点目录> && git pull && pm2 restart navhub
 ```
 
 > 嫌每次 SSH 太麻烦？配置「自动部署 Webhook」后，`git push` 会自动上线——见下方「部署指南 → 自动部署（GitHub Webhook）」。
@@ -206,7 +206,7 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 
 ## 方式一：宝塔面板（BT-Panel）
 
-1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/qinghua-li-nav`；或终端 git 拉取：
+1. **上传代码**：宝塔「文件」中把项目上传到如 `/www/wwwroot/<你的站点目录>`；或终端 git 拉取：
    ```bash
    cd /www/wwwroot
    git clone git@github.com:<你的用户名>/qinghua-li-nav.git qinghua-li-nav
@@ -217,7 +217,7 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
    - 若用 Node 项目管理器：添加项目 → 启动文件选 `server/index.js`，运行目录为项目根，端口 `3000`，自动执行 `npm install`。
    - 或终端方式：
      ```bash
-     cd /www/wwwroot/qinghua-li-nav
+     cd /www/wwwroot/<你的站点目录>
      npm install --omit=dev
      ```
 4. **配置环境变量**：
@@ -242,7 +242,7 @@ cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 7. **首次验证**：访问 `https://你的域名` 看前台，`/admin` 登录后台（用第 4 步配置的账号），进「站点配置」改公告/导航链接等。
 8. **备份**：宝塔「计划任务」加一条每日 Shell：
    ```bash
-   cp -r /www/wwwroot/qinghua-li-nav/data /www/backup/qinghua-li-nav-$(date +\%F)
+   cp -r /www/wwwroot/<你的站点目录>/data /www/backup/<你的站点目录>-$(date +\%F)
    ```
    `data/` 里是 SQLite 数据库（含分类/网址/投稿/站点配置），拷走即全量备份。
 
@@ -356,7 +356,7 @@ npm run submit
 - **独立定时**：crontab 每天 04:00 跑（与部署解耦，更稳）：
 
 ```bash
-0 4 * * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
+0 4 * * * cd /www/wwwroot/<你的站点目录> && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
 ```
 
 > 另建议手动去百度 / 必应 / Google 站长平台各提交一次 sitemap.xml（一次性），与脚本的主动推送互补。
@@ -409,7 +409,7 @@ npm run submit
 
 ```bash
 # 每月 1 日 03:10 扫描全站死链
-10 3 1 * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/monthly-linkcheck.js >> data/linkcheck.log 2>&1
+10 3 1 * * cd /www/wwwroot/<你的站点目录> && /usr/bin/node scripts/monthly-linkcheck.js >> data/linkcheck.log 2>&1
 ```
 
 没有服务器权限时，直接在后台「链接体检」手动点「开始检测」即可。

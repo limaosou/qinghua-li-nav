@@ -14,7 +14,7 @@
  *   node scripts/submit-index.js
  *   npm run submit
  * 建议 crontab（每天 04:00）：
- *   0 4 * * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
+ *   0 4 * * * cd /www/wwwroot/<你的站点目录> && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
  */
 'use strict';
 const fs = require('fs');

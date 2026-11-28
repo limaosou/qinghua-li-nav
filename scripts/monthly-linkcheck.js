@@ -12,7 +12,7 @@
  * 用法：
  *   node scripts/monthly-linkcheck.js
  * 建议服务器 crontab（每月 1 日 03:10）：
- *   10 3 1 * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/monthly-linkcheck.js >> data/linkcheck.log 2>&1
+ *   10 3 1 * * cd /www/wwwroot/<你的站点目录> && /usr/bin/node scripts/monthly-linkcheck.js >> data/linkcheck.log 2>&1
  */
 'use strict';
 const fs = require('fs');
