@@ -256,12 +256,16 @@ function tagsHTML(s) {
 
 function cardHTML(s, i, extraClass = '') {
   const detail = window.__SETTINGS__ && window.__SETTINGS__.site_detail_enabled;
-  const href = detail ? '/site/' + s.id : esc(s.url);
-  const attrs = detail ? '' : 'target="_blank" rel="noopener"';
-  const dataId = detail ? '' : `data-id="${esc(s.id ?? '')}"`;
+  // is_direct（站点单独设置）优先于全局详情页开关：开启直达则永远外链打开
+  const goDetail = detail && !s.is_direct;
+  const href = goDetail ? '/site/' + s.id : esc(s.url);
+  const attrs = goDetail ? '' : 'target="_blank" rel="noopener"';
+  const dataId = goDetail ? '' : `data-id="${esc(s.id ?? '')}"`;
+  const directMark = s.is_direct && !goDetail ? '<span class="absolute top-2.5 left-2.5 text-[color:var(--ink-soft)]" title="点击直达"><i data-lucide="external-link" class="w-3.5 h-3.5"></i></span>' : '';
   return `
-  <a href="${href}" ${attrs} ${dataId} data-idx="${i}"
+  <a href="${href}" ${attrs} ${dataId} data-idx="${i}" data-direct="${s.is_direct ? 1 : 0}" data-realurl="${esc(s.url)}"
      class="card-hover group relative block p-3.5 border cursor-pointer${extraClass}">
+    ${directMark}
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-[color:var(--ink-soft)]" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
@@ -512,7 +516,8 @@ let favMode = false;
 function favSiteFromCard(a) {
   return {
     id: a.dataset.id,
-    url: a.getAttribute('href'),
+    url: a.dataset.realurl || a.getAttribute('href'),  // 存真实网址，避免详情模式下存成 /site/id
+    is_direct: a.dataset.direct === '1',
     title: a.querySelector('.font-medium')?.textContent?.trim() || '',
     icon: a.querySelector('img')?.getAttribute('src') || '',
     description: a.querySelector('.text-xs')?.textContent?.trim() || '',
@@ -563,7 +568,7 @@ function renderFavView() {
     try { lucide.createIcons(); } catch {}
     return;
   }
-  const cards = favs.map((f, i) => cardHTML({ id: f.id, url: f.url, title: f.title, icon: f.icon, description: f.description, tags: '' }, i)).join('');
+  const cards = favs.map((f, i) => cardHTML({ id: f.id, url: f.url, title: f.title, icon: f.icon, description: f.description, tags: '', is_direct: f.is_direct }, i)).join('');
   content.innerHTML = `<section><div class="flex items-center gap-2.5 mb-4"><span class="text-[15px] leading-none">◇</span><h2 class="text-lg font-bold tracking-tight">我的收藏</h2><span class="count px-2 py-0.5 text-[11px]">${favs.length}</span></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">${cards}</div></section>`;
   try { lucide.createIcons(); } catch {}
   attachFavs();

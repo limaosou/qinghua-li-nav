@@ -63,7 +63,7 @@ router.get('/nav', (req, res) => {
     .all();
 
   const siteStmt = db.prepare(`
-    SELECT id, category_id, title, url, description, tags, icon, is_pinned
+    SELECT id, category_id, title, url, description, tags, icon, is_pinned, is_direct
     FROM sites
     WHERE is_hidden = 0 AND category_id = ?
     ORDER BY is_pinned DESC, sort_order ASC, id ASC
@@ -114,7 +114,7 @@ router.post('/click', (req, res) => {
 router.get('/popular', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 12, 30);
   const rows = db
-    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned
+    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned, is_direct
               FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT ?`)
     .all(limit);
   res.json({ code: 0, data: rows });

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sites (
   sort_order   INTEGER DEFAULT 0,
   is_pinned    INTEGER DEFAULT 0,
   is_hidden    INTEGER DEFAULT 0,
+  is_direct    INTEGER DEFAULT 0,   -- 点击直达：1=首页卡片点击直接打开目标网址，0=按全局详情页设置
   clicks       INTEGER DEFAULT 0,
   detail_content TEXT  DEFAULT '',   -- 单站详情页「网站介绍内容」（支持 HTML）
   created_at   TEXT    DEFAULT (datetime('now','localtime'))
@@ -94,6 +95,10 @@ try {
   if (!cols.includes('detail_content')) {
     db.exec("ALTER TABLE sites ADD COLUMN detail_content TEXT DEFAULT ''");
     console.log('✓ 已为 sites 表补充 detail_content 列');
+  }
+  if (!cols.includes('is_direct')) {
+    db.exec('ALTER TABLE sites ADD COLUMN is_direct INTEGER DEFAULT 0');
+    console.log('✓ 已为 sites 表补充 is_direct 列（点击直达）');
   }
 } catch { /* 忽略 */ }
 

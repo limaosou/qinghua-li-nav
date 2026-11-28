@@ -40,7 +40,7 @@ function tagsHTML(s) {
 function getNavData() {
   const categories = db.prepare('SELECT id, name, icon FROM categories ORDER BY sort_order ASC, id ASC').all();
   const siteStmt = db.prepare(`
-    SELECT id, category_id, title, url, description, tags, icon, is_pinned
+    SELECT id, category_id, title, url, description, tags, icon, is_pinned, is_direct
     FROM sites WHERE is_hidden = 0 AND category_id = ?
     ORDER BY is_pinned DESC, sort_order ASC, id ASC`);
   return categories.map((c) => ({ ...c, sites: siteStmt.all(c.id) }));
@@ -48,12 +48,16 @@ function getNavData() {
 
 /* 与前端 index.html 中的模板保持一致 */
 function cardHTML(s, i, extraClass = '', detailEnabled = false) {
-  const href = detailEnabled ? `/site/${s.id}` : esc(s.url);
-  const attrs = detailEnabled ? '' : 'target="_blank" rel="noopener"';
-  const dataId = detailEnabled ? '' : `data-id="${esc(s.id ?? '')}"`;
+  // is_direct（站点单独设置）优先于全局详情页开关：开启直达则永远外链打开
+  const goDetail = detailEnabled && !s.is_direct;
+  const href = goDetail ? `/site/${s.id}` : esc(s.url);
+  const attrs = goDetail ? '' : 'target="_blank" rel="noopener"';
+  const dataId = goDetail ? '' : `data-id="${esc(s.id ?? '')}"`;
+  const directMark = s.is_direct && !goDetail ? '<span class="absolute top-2.5 left-2.5 text-[color:var(--ink-soft)]" title="点击直达"><i data-lucide="external-link" class="w-3.5 h-3.5"></i></span>' : '';
   return `
-  <a href="${href}" ${attrs} ${dataId} data-idx="${i}"
+  <a href="${href}" ${attrs} ${dataId} data-idx="${i}" data-direct="${s.is_direct ? 1 : 0}" data-realurl="${esc(s.url)}"
      class="card-hover group relative block p-3.5 border cursor-pointer${extraClass}">
+    ${directMark}
     ${s.is_pinned ? `<span class="absolute top-2.5 right-2.5 text-[color:var(--ink-soft)]" title="置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></span>` : ''}
     <div class="flex items-center gap-3">
       <div class="relative w-10 h-10 shrink-0">
@@ -118,7 +122,7 @@ function featuredHTML(data, detailEnabled = false) {
 /** 热门站点条：按点击降序取前 12（clicks>0 才显示），空则不渲染 */
 function popularHTML(detailEnabled = false) {
   const rows = db
-    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned
+    .prepare(`SELECT id, category_id, title, url, description, tags, icon, is_pinned, is_direct
               FROM sites WHERE is_hidden = 0 AND clicks > 0 ORDER BY clicks DESC LIMIT 12`)
     .all();
   if (!rows.length) return '';
@@ -466,7 +470,7 @@ function renderSiteDetail(req, siteId) {
   const total15 = st.total15;
   const totalPc = st.totalPc;
   const totalMb = st.totalMb;
-  const related = db.prepare('SELECT id, category_id, title, url, description, tags, icon, is_pinned FROM sites WHERE is_hidden = 0 AND category_id = ? AND id != ? ORDER BY is_pinned DESC, sort_order ASC LIMIT 8').all(site.category_id, id);
+  const related = db.prepare('SELECT id, category_id, title, url, description, tags, icon, is_pinned, is_direct FROM sites WHERE is_hidden = 0 AND category_id = ? AND id != ? ORDER BY is_pinned DESC, sort_order ASC LIMIT 8').all(site.category_id, id);
   const maxBar = Math.max(1, ...stats15.flatMap(x => [x.pc, x.mb]));
   const barsHTML = stats15.map((x, i) => {
     const pcH = x.pc ? Math.max(Math.round((x.pc / maxBar) * 100), 5) : 0;

@@ -171,6 +171,7 @@ tailwind.config = {
           <input id="siteTags" placeholder="标签，逗号分隔（可选）" class="px-3 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400 transition">
           <div class="flex items-center gap-4 text-sm">
             <label class="flex items-center gap-1.5 cursor-pointer"><input id="sitePinned" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">置顶</label>
+            <label class="flex items-center gap-1.5 cursor-pointer" title="开启后，首页该站点卡片点击将直接打开目标网址（新窗口），不再进入详情页"><input id="siteDirect" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">点击直达</label>
             <label class="flex items-center gap-1.5 cursor-pointer"><input id="siteHidden" type="checkbox" class="accent-indigo-500 w-4 h-4 cursor-pointer">隐藏</label>
             <span class="ml-auto flex items-center gap-1.5 text-slate-400 text-xs">排序
               <input id="siteSort" type="number" value="0" class="w-16 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm outline-none focus:border-indigo-400">
@@ -590,7 +591,7 @@ function renderCatSelect() {
 function resetSiteForm() {
   editSiteId = null;
   ['siteTitle', 'siteUrl', 'siteIcon', 'siteDesc', 'siteTags', 'siteDetailContent'].forEach(id => $(id).value = '');
-  $('sitePinned').checked = $('siteHidden').checked = false;
+  $('sitePinned').checked = $('siteDirect').checked = $('siteHidden').checked = false;
   $('siteSort').value = 0;
   $('iconPreview').style.visibility = 'hidden';
   $('resetSiteBtn').classList.add('hidden');
@@ -719,13 +720,15 @@ function renderSites() {
       <td class="px-3 py-2.5">
         <span class="inline-flex gap-1">
           ${s.is_pinned ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500">置顶</span>' : ''}
+          ${s.is_direct ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">直达</span>' : ''}
           ${s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">隐藏</span>' : ''}
-          ${!s.is_pinned && !s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-slate-100 dark:bg-gray-800 text-slate-400">正常</span>' : ''}
+          ${!s.is_pinned && !s.is_direct && !s.is_hidden ? '<span class="px-1.5 py-0.5 rounded-md text-[11px] bg-slate-100 dark:bg-gray-800 text-slate-400">正常</span>' : ''}
         </span>
       </td>
       <td class="px-3 py-2.5 text-right whitespace-nowrap">
         <button data-site-edit="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="编辑"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
         <button data-site-pin="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 cursor-pointer transition-colors" title="置顶/取消置顶"><i data-lucide="pin" class="w-3.5 h-3.5"></i></button>
+        <button data-site-direct="${s.id}" class="p-1.5 rounded-lg ${s.is_direct ? 'text-emerald-500' : 'text-slate-400'} hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 cursor-pointer transition-colors" title="点击直达/进入详情页"><i data-lucide="external-link" class="w-3.5 h-3.5"></i></button>
         <button data-site-hide="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 cursor-pointer transition-colors" title="显示/隐藏"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i></button>
         <button data-site-del="${s.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer transition-colors" title="删除"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
       </td>
@@ -747,6 +750,7 @@ async function saveSite() {
     icon: $('siteIcon').value.trim(),
     detail_content: $('siteDetailContent').value,
     is_pinned: $('sitePinned').checked ? 1 : 0,
+    is_direct: $('siteDirect').checked ? 1 : 0,
     is_hidden: $('siteHidden').checked ? 1 : 0,
     sort_order: +$('siteSort').value || 0,
   };
@@ -803,7 +807,7 @@ $('siteIcon').addEventListener('input', () => {
 
 $('siteTable').addEventListener('click', async e => {
   const edit = e.target.closest('[data-site-edit]'), pin = e.target.closest('[data-site-pin]');
-  const hide = e.target.closest('[data-site-hide]'), del = e.target.closest('[data-site-del]');
+  const direct = e.target.closest('[data-site-direct]'), hide = e.target.closest('[data-site-hide]'), del = e.target.closest('[data-site-del]');
   try {
     if (edit) {
       const s = SITES.find(x => x.id === +edit.dataset.siteEdit);
@@ -814,7 +818,7 @@ $('siteTable').addEventListener('click', async e => {
       $('siteIcon').value = s.icon || '';
       $('siteDetailContent').value = s.detail_content || '';
       if (s.icon) { $('iconPreview').src = s.icon; $('iconPreview').style.visibility = 'visible'; }
-      $('sitePinned').checked = !!s.is_pinned; $('siteHidden').checked = !!s.is_hidden;
+      $('sitePinned').checked = !!s.is_pinned; $('siteDirect').checked = !!s.is_direct; $('siteHidden').checked = !!s.is_hidden;
       $('siteSort').value = s.sort_order || 0;
       $('resetSiteBtn').classList.remove('hidden');
       $('siteFormTitle').innerHTML = '<i data-lucide="pencil" class="w-4 h-4 text-indigo-500"></i>编辑网址';
@@ -823,6 +827,11 @@ $('siteTable').addEventListener('click', async e => {
     } else if (pin) {
       const s = SITES.find(x => x.id === +pin.dataset.sitePin);
       await api('/api/admin/sites', { action: 'toggle', id: s.id, field: 'is_pinned', value: s.is_pinned ? 0 : 1 });
+      await loadAll();
+    } else if (direct) {
+      const s = SITES.find(x => x.id === +direct.dataset.siteDirect);
+      await api('/api/admin/sites', { action: 'toggle', id: s.id, field: 'is_direct', value: s.is_direct ? 0 : 1 });
+      toast(s.is_direct ? '已取消点击直达' : '已开启点击直达');
       await loadAll();
     } else if (hide) {
       const s = SITES.find(x => x.id === +hide.dataset.siteHide);
