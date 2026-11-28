@@ -35,7 +35,7 @@
 | 📱 **PWA 可安装**（离线可开、像原生 App） | 简单防暴力破解（10 分钟 5 次） |
 | 🦝 **品牌故事页** `/about`（收录规范 + 投稿入口） | |
 | 移动端 / PC 完全响应式 | |
-| SEO 全套：sitemap.xml / robots.txt / llms.txt / JSON-LD / OG 分享卡 | |
+| SEO 全套：sitemap.xml / robots.txt / JSON-LD / OG 分享卡 | |
 
 前台内置访客投稿：右上角「推荐好站」→ 提交后进审核队列 → 站长通过即在导航展示。
 
@@ -174,7 +174,7 @@ git push
 然后到服务器上更新：
 
 ```bash
-cd /www/wwwroot/qinghua-li-nav && git pull && pm2 restart navhub
+cd /www/wwwroot/qinghua-nav && git pull && pm2 restart navhub
 ```
 
 > 嫌每次 SSH 太麻烦？配置「自动部署 Webhook」后，`git push` 会自动上线——见下方「部署指南 → 自动部署（GitHub Webhook）」。
@@ -329,7 +329,7 @@ WEBHOOK_SECRET=<一段随机长字符串>
 
 - 抓取线上 `SITE_URL/sitemap.xml`，解析全部 `<loc>` 链接；
 - **百度**（国内主战场，收录最快）：主动推送接口 + sitemap 提交接口，需 `BAIDU_ZZ_TOKEN`（在百度搜索资源平台 ziyuan.baidu.com → 普通收录 → 接口调用里拿）；
-- **必应 / Bing**（同时喂给 ChatGPT、Copilot 等）：走 IndexNow 协议，需 `BING_INDEXNOW_KEY`；脚本会自动在 `public/<key>.txt` 生成校验文件。
+- **必应 / Bing**：走 IndexNow 协议，需 `BING_INDEXNOW_KEY`；脚本会自动在 `public/<key>.txt` 生成校验文件。
 
 ### 配置（.env）
 
@@ -359,7 +359,7 @@ npm run submit
 0 4 * * * cd /www/wwwroot/qinghua-li-nav && /usr/bin/node scripts/submit-index.js >> data/submit.log 2>&1
 ```
 
-> 另建议手动去百度 / 必应 / Google 站长平台各提交一次 sitemap.xml（一次性），与脚本的主动推送互补。llms.txt 已就位，AI 助手也有概率直接引用本站。
+> 另建议手动去百度 / 必应 / Google 站长平台各提交一次 sitemap.xml（一次性），与脚本的主动推送互补。
 
 ## 数据备份
 
